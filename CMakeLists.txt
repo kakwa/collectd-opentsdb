@@ -49,6 +49,12 @@ MESSAGE(STATUS "Curl library: ${CURL_LIBRARIES}")
 MESSAGE(STATUS "Curl version: ${CURL_VERSION_STRING}")
 MESSAGE(STATUS "OS Detected: ${CMAKE_SYSTEM_NAME}")
 
+include_directories(
+    inc/
+    ${COLLECTD_INCLUDE_DIR}
+    ${CURL_INCLUDE_DIRS}
+)
+
 add_library(write_tsdb2
     "SHARED"
     src/write_tsdb2.c
@@ -64,6 +70,6 @@ target_link_libraries(write_tsdb2
 )
 
 INSTALL(TARGETS write_tsdb2
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib/collectd
+  ARCHIVE DESTINATION lib/collectd
 )
