@@ -31,7 +31,7 @@ ENDIF(LINK_PTHREAD)
 
 set (CMAKE_C_STANDARD 11)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700 -DHAVE__BOOL=0")
 
 if(DEBUG)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -g")
@@ -67,20 +67,19 @@ MESSAGE(STATUS "OS Detected: ${CMAKE_SYSTEM_NAME}")
 #endif()
 
 
-add_library(writer_tsdb2
-    src/writer_tsdb2.c
+add_library(write_tsdb2
+    "SHARED"
+    src/write_tsdb2.c
 )
 
-target_link_libraries(writer_tsdb2
+target_link_libraries(write_tsdb2
     ${OPENSSL_LIBRARIES}
-    ${LIBCIVETWEB_LIBRARIES}
-    ${ARGP_LIBRARIES}
     ${DL_LIBRARIES}
     ${GCC_S_LIBRARIES}
     ${PTHREAD_LIBRARIES}
 )
 
-INSTALL(TARGETS writer_tsdb2
+INSTALL(TARGETS write_tsdb2
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
 )
