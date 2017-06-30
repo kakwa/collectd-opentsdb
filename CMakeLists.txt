@@ -9,14 +9,6 @@ option(LINK_DL            "link dl" OFF)
 option(LINK_GCC_S         "link gcc_s" OFF)
 option(LINK_PTHREAD       "link pthread" OFF)
 
-IF(STATIC)
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
-    set(OPENSSL_USE_STATIC_LIBS ON)
-    set(ARGP_USE_STATIC_LIBS ON)
-    set(CIVETWEB_USE_STATIC_LIBS ON)
-ENDIF(STATIC)
-
 IF(LINK_DL)
     set(DL_LIBRARIES 'dl')
 ENDIF(LINK_DL)
@@ -48,25 +40,14 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DTSBD_WRITER2_VERSION='\"${VERSION}\"'")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
-#find_package(OpenSSL REQUIRED)
-#find_package(LibreSSL)
+find_package(CURL REQUIRED)
+find_package(collectd REQUIRED)
 
-MESSAGE(STATUS "OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
-MESSAGE(STATUS "OpenSSL libraries: ${OPENSSL_LIBRARIES}")
-MESSAGE(STATUS "OpenSSL version: ${OPENSSL_VERSION}")
-MESSAGE(STATUS "LibreSSL Detected: ${IS_LIBRESSL}")
+MESSAGE(STATUS "Collectd include dir: ${COLLECTD_INCLUDE_DIR}")
+MESSAGE(STATUS "Curl include directory: ${CURL_INCLUDE_DIRS}")
+MESSAGE(STATUS "Curl library: ${CURL_LIBRARIES}")
+MESSAGE(STATUS "Curl version: ${CURL_VERSION_STRING}")
 MESSAGE(STATUS "OS Detected: ${CMAKE_SYSTEM_NAME}")
-
-
-#if(NOT(DEFINED OPENSSL_API_1_1))
-#    if(${OPENSSL_VERSION} VERSION_GREATER 1.0.99 AND NOT(IS_LIBRESSL))
-#        set(OPENSSL_API_1_1 ON)
-#    else()
-#        set(OPENSSL_API_1_1 OFF)
-#    endif()
-#endif()
-
-
 
 add_library(write_tsdb2
     "SHARED"
@@ -76,7 +57,7 @@ add_library(write_tsdb2
 SET_TARGET_PROPERTIES(write_tsdb2 PROPERTIES PREFIX "")
 
 target_link_libraries(write_tsdb2
-    ${OPENSSL_LIBRARIES}
+    ${CURL_LIBRARIES}
     ${DL_LIBRARIES}
     ${GCC_S_LIBRARIES}
     ${PTHREAD_LIBRARIES}
@@ -86,7 +67,3 @@ INSTALL(TARGETS write_tsdb2
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
 )
-
-if(BUNDLE_CIVETWEB)
-    add_dependencies(writer_tsdb2 civetweb)
-endif(BUNDLE_CIVETWEB)
