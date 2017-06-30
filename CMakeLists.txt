@@ -67,10 +67,13 @@ MESSAGE(STATUS "OS Detected: ${CMAKE_SYSTEM_NAME}")
 #endif()
 
 
+
 add_library(write_tsdb2
     "SHARED"
     src/write_tsdb2.c
 )
+
+SET_TARGET_PROPERTIES(write_tsdb2 PROPERTIES PREFIX "")
 
 target_link_libraries(write_tsdb2
     ${OPENSSL_LIBRARIES}
