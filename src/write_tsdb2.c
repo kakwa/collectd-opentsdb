@@ -138,6 +138,7 @@
 #include <errno.h>
 #include <string.h>
 #include <inttypes.h>
+#include <curl/curl.h>
 
 
 #define HAVE__BOOL 1
@@ -188,6 +189,15 @@ struct wt_callback {
   char *node;
   char *service;
   char *host_tags;
+
+  _Bool verify_peer;
+  _Bool verify_host;
+  char *cacert;
+  char *capath;
+  char *clientkey;
+  char *clientcert;
+  char *clientkeypass;
+  long sslversion;
 
   _Bool store_rates;
   _Bool always_append_ds;
@@ -860,20 +870,70 @@ static int wt_config_tsd(oconfig_item_t *ci) {
   cb->connect_failed_log_enabled = 1;
 
   pthread_mutex_init(&cb->send_lock, NULL);
+  int status;
 
   for (int i = 0; i < ci->children_num; i++) {
     oconfig_item_t *child = ci->children + i;
 
-    if (strcasecmp("Host", child->key) == 0)
+    if (strcasecmp("Url", child->key) == 0)
       cf_util_get_string(child, &cb->node);
-    else if (strcasecmp("Port", child->key) == 0)
-      cf_util_get_service(child, &cb->service);
     else if (strcasecmp("HostTags", child->key) == 0)
       cf_util_get_string(child, &cb->host_tags);
     else if (strcasecmp("StoreRates", child->key) == 0)
       cf_util_get_boolean(child, &cb->store_rates);
     else if (strcasecmp("AlwaysAppendDS", child->key) == 0)
       cf_util_get_boolean(child, &cb->always_append_ds);
+    else if (strcasecmp("VerifyPeer", child->key) == 0)
+      status = cf_util_get_boolean(child, &cb->verify_peer);
+    else if (strcasecmp("VerifyHost", child->key) == 0)
+      status = cf_util_get_boolean(child, &cb->verify_host);
+    else if (strcasecmp("CACert", child->key) == 0)
+      status = cf_util_get_string(child, &cb->cacert);
+    else if (strcasecmp("CAPath", child->key) == 0)
+      status = cf_util_get_string(child, &cb->capath);
+    else if (strcasecmp("ClientKey", child->key) == 0)
+      status = cf_util_get_string(child, &cb->clientkey);
+    else if (strcasecmp("ClientCert", child->key) == 0)
+      status = cf_util_get_string(child, &cb->clientcert);
+    else if (strcasecmp("ClientKeyPass", child->key) == 0)
+      status = cf_util_get_string(child, &cb->clientkeypass);
+    else if (strcasecmp("SSLVersion", child->key) == 0) {
+      char *value = NULL;
+
+      status = cf_util_get_string(child, &value);
+      if (status != 0)
+        break;
+
+      if (value == NULL || strcasecmp("default", value) == 0)
+        cb->sslversion = CURL_SSLVERSION_DEFAULT;
+      else if (strcasecmp("SSLv2", value) == 0)
+        cb->sslversion = CURL_SSLVERSION_SSLv2;
+      else if (strcasecmp("SSLv3", value) == 0)
+        cb->sslversion = CURL_SSLVERSION_SSLv3;
+      else if (strcasecmp("TLSv1", value) == 0)
+        cb->sslversion = CURL_SSLVERSION_TLSv1;
+#if (LIBCURL_VERSION_MAJOR > 7) ||                                             \
+    (LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 34)
+      else if (strcasecmp("TLSv1_0", value) == 0)
+        cb->sslversion = CURL_SSLVERSION_TLSv1_0;
+      else if (strcasecmp("TLSv1_1", value) == 0)
+        cb->sslversion = CURL_SSLVERSION_TLSv1_1;
+      else if (strcasecmp("TLSv1_2", value) == 0)
+        cb->sslversion = CURL_SSLVERSION_TLSv1_2;
+#endif
+#if (LIBCURL_VERSION_MAJOR > 7) ||                                             \
+    (LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 52)
+      else if (strcasecmp("TLSv1_3", value) == 0)
+        cb->sslversion = CURL_SSLVERSION_TLSv1_3;
+#endif
+      else {
+        ERROR("write_http plugin: Invalid SSLVersion "
+              "option: %s.",
+              value);
+        status = EINVAL;
+      }
+      sfree(value);
+    }
     else {
       ERROR("write_tsdb2 plugin: Invalid configuration "
             "option: %s.",
