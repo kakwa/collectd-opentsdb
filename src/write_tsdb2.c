@@ -1,5 +1,5 @@
 /**
- * collectd - src/write_tsdb.c
+ * collectd - src/write_tsdb2.c
  * Copyright (C) 2012       Pierre-Yves Ritschard
  * Copyright (C) 2011       Scott Sanders
  * Copyright (C) 2009       Paul Sadauskas
@@ -25,16 +25,16 @@
  *   Paul Sadauskas <psadauskas at gmail.com>
  *   Scott Sanders <scott at jssjr.com>
  *   Pierre-Yves Ritschard <pyr at spootnik.org>
- * write_tsdb Authors:
+ * write_tsdb2 Authors:
  *   Brett Hawn <bhawn at llnw.com>
  *   Kevin Bowling <kbowling@llnw.com>
  *   Yves Mettier <ymettier@free.fr>
  **/
 
-/* write_tsdb plugin configuation example
+/* write_tsdb2 plugin configuation example
  * --------------------------------------
  *
- * <Plugin write_tsdb>
+ * <Plugin write_tsdb2>
  *   <Node>
  *     Host "localhost"
  *     Port "4242"
@@ -42,7 +42,7 @@
  *   </Node>
  * </Plugin>
  *
- * write_tsdb meta_data
+ * write_tsdb2 meta_data
  * --------------------
  *  - tsdb_prefix : Will prefix the OpenTSDB <metric> (also prefix tsdb_id if
  * defined)
@@ -60,7 +60,7 @@
  *                            : named 'status'.
  *                            : It will be sent as is to the TSDB server.
  *
- * write_tsdb plugin filter rules example
+ * write_tsdb2 plugin filter rules example
  * --------------------------------------
  *
  * <Chain "PreCache">
@@ -129,12 +129,26 @@
  *
  */
 
-#include "collectd.h"
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <inttypes.h>
 
-#include "common.h"
-#include "plugin.h"
 
-#include "utils_cache.h"
+#define HAVE__BOOL 1
+#define FP_LAYOUT_NEED_NOTHING 1
+
+#include <collectd/core/daemon/collectd.h>
+
+#include <collectd/core/daemon/common.h>
+#include <collectd/core/daemon/plugin.h>
+
+#include <collectd/core/daemon/utils_cache.h>
 
 #include <netdb.h>
 
@@ -204,7 +218,7 @@ static int wt_send_buffer(struct wt_callback *cb) {
   status = swrite(cb->sock_fd, cb->send_buf, strlen(cb->send_buf));
   if (status < 0) {
     char errbuf[1024];
-    ERROR("write_tsdb plugin: send failed with status %zi (%s)", status,
+    ERROR("write_tsdb2 plugin: send failed with status %zi (%s)", status,
           sstrerror(errno, errbuf, sizeof(errbuf)));
 
     close(cb->sock_fd);
@@ -220,7 +234,7 @@ static int wt_send_buffer(struct wt_callback *cb) {
 static int wt_flush_nolock(cdtime_t timeout, struct wt_callback *cb) {
   int status;
 
-  DEBUG("write_tsdb plugin: wt_flush_nolock: timeout = %.3f; "
+  DEBUG("write_tsdb2 plugin: wt_flush_nolock: timeout = %.3f; "
         "send_buf_fill = %zu;",
         (double)timeout, cb->send_buf_fill);
 
@@ -261,7 +275,7 @@ static int wt_callback_init(struct wt_callback *cb) {
   status = getaddrinfo(node, service, &ai_hints, &ai_list);
   if (status != 0) {
     if (cb->connect_failed_log_enabled) {
-      ERROR("write_tsdb plugin: getaddrinfo (%s, %s) failed: %s", node, service,
+      ERROR("write_tsdb2 plugin: getaddrinfo (%s, %s) failed: %s", node, service,
             gai_strerror(status));
       cb->connect_failed_log_enabled = 0;
     }
@@ -293,7 +307,7 @@ static int wt_callback_init(struct wt_callback *cb) {
   if (cb->sock_fd < 0) {
     if (cb->connect_failed_log_enabled) {
       char errbuf[1024];
-      ERROR("write_tsdb plugin: Connecting to %s:%s failed. "
+      ERROR("write_tsdb2 plugin: Connecting to %s:%s failed. "
             "The last error was: %s",
             node, service, sstrerror(errno, errbuf, sizeof(errbuf)));
       cb->connect_failed_log_enabled = 0;
@@ -302,7 +316,7 @@ static int wt_callback_init(struct wt_callback *cb) {
   }
 
   if (0 == cb->connect_failed_log_enabled) {
-    WARNING("write_tsdb plugin: Connecting to %s:%s succeeded.", node, service);
+    WARNING("write_tsdb2 plugin: Connecting to %s:%s succeeded.", node, service);
     cb->connect_failed_log_enabled = 1;
   }
   wt_reset_buffer(cb);
@@ -353,7 +367,7 @@ static int wt_flush(cdtime_t timeout,
       if (cb->connect_failed_log_enabled || cb->sock_fd >= 0) {
         /* Do not log if socket is not enabled : it was logged already
          * in wt_callback_init(). */
-        ERROR("write_tsdb plugin: wt_callback_init failed.");
+        ERROR("write_tsdb2 plugin: wt_callback_init failed.");
       }
       pthread_mutex_unlock(&cb->send_lock);
       return -1;
@@ -503,7 +517,7 @@ static int wt_format_tags(char *ret, int ret_len, const value_list_t *vl,
         continue;
       }
       if ('\0' == meta_toc[i][sizeof(TSDB_META_TAG_ADD_PREFIX) - 1]) {
-        ERROR("write_tsdb plugin: meta_data tag '%s' is unknown (host=%s, "
+        ERROR("write_tsdb2 plugin: meta_data tag '%s' is unknown (host=%s, "
               "plugin=%s, type=%s)",
               temp, vl->host, vl->plugin, vl->type);
         free(meta_toc[i]);
@@ -680,7 +694,7 @@ static int wt_send_message(const char *key, const char *value,
     if (status == -ENOENT) {
       /* defaults to empty string */
     } else if (status < 0) {
-      ERROR("write_tsdb plugin (%s:%s): tags metadata get failure", node,
+      ERROR("write_tsdb2 plugin (%s:%s): tags metadata get failure", node,
             service);
       sfree(temp);
       return status;
@@ -698,7 +712,7 @@ static int wt_send_message(const char *key, const char *value,
   message_len = (size_t)status;
 
   if (message_len >= sizeof(message)) {
-    ERROR("write_tsdb plugin(%s:%s): message buffer too small: "
+    ERROR("write_tsdb2 plugin(%s:%s): message buffer too small: "
           "Need %zu bytes.",
           node, service, message_len + 1);
     return -1;
@@ -712,7 +726,7 @@ static int wt_send_message(const char *key, const char *value,
       if (cb->connect_failed_log_enabled || cb->sock_fd >= 0) {
         /* Do not log if socket is not enabled : it was logged already
          * in wt_callback_init(). */
-        ERROR("write_tsdb plugin (%s:%s): wt_callback_init failed.", node,
+        ERROR("write_tsdb2 plugin (%s:%s): wt_callback_init failed.", node,
               service);
         cb->connect_failed_log_enabled = 0;
       }
@@ -738,7 +752,7 @@ static int wt_send_message(const char *key, const char *value,
   cb->send_buf_fill += message_len;
   cb->send_buf_free -= message_len;
 
-  DEBUG("write_tsdb plugin: [%s]:%s buf %zu/%zu (%.1f %%) \"%s\"", node,
+  DEBUG("write_tsdb2 plugin: [%s]:%s buf %zu/%zu (%.1f %%) \"%s\"", node,
         service, cb->send_buf_fill, sizeof(cb->send_buf),
         100.0 * ((double)cb->send_buf_fill) / ((double)sizeof(cb->send_buf)),
         message);
@@ -760,7 +774,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
   const char *service = cb->service ? cb->service : WT_DEFAULT_SERVICE;
 
   if (0 != strcmp(ds->type, vl->type)) {
-    ERROR("write_tsdb plugin: DS type does not match "
+    ERROR("write_tsdb2 plugin: DS type does not match "
           "value list type");
     return -1;
   }
@@ -774,7 +788,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
     /* Copy the identifier to 'key' and escape it. */
     status = wt_format_name(key, sizeof(key), vl, cb, ds_name);
     if (status != 0) {
-      ERROR("write_tsdb plugin: error with format_name");
+      ERROR("write_tsdb2 plugin: error with format_name");
       return status;
     }
 
@@ -784,7 +798,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
     status =
         wt_format_values(values, sizeof(values), i, ds, vl, cb->store_rates);
     if (status != 0) {
-      ERROR("write_tsdb plugin: error with "
+      ERROR("write_tsdb2 plugin: error with "
             "wt_format_values");
       return status;
     }
@@ -793,7 +807,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
     tags[0] = '\0';
     status = wt_format_tags(tags, sizeof(tags), vl, cb, ds_name);
     if (status != 0) {
-      ERROR("write_tsdb plugin: error with format_tags");
+      ERROR("write_tsdb2 plugin: error with format_tags");
       return status;
     }
 
@@ -803,7 +817,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
       if (cb->connect_failed_log_enabled) {
         /* Do not log if socket is not enabled : it was logged already
          * in wt_callback_init(). */
-        ERROR("write_tsdb plugin (%s:%s): error with "
+        ERROR("write_tsdb2 plugin (%s:%s): error with "
               "wt_send_message",
               node, service);
       }
@@ -835,7 +849,7 @@ static int wt_config_tsd(oconfig_item_t *ci) {
 
   cb = calloc(1, sizeof(*cb));
   if (cb == NULL) {
-    ERROR("write_tsdb plugin: calloc failed.");
+    ERROR("write_tsdb2 plugin: calloc failed.");
     return -1;
   }
   cb->sock_fd = -1;
@@ -861,13 +875,13 @@ static int wt_config_tsd(oconfig_item_t *ci) {
     else if (strcasecmp("AlwaysAppendDS", child->key) == 0)
       cf_util_get_boolean(child, &cb->always_append_ds);
     else {
-      ERROR("write_tsdb plugin: Invalid configuration "
+      ERROR("write_tsdb2 plugin: Invalid configuration "
             "option: %s.",
             child->key);
     }
   }
 
-  ssnprintf(callback_name, sizeof(callback_name), "write_tsdb/%s/%s",
+  ssnprintf(callback_name, sizeof(callback_name), "write_tsdb2/%s/%s",
             cb->node != NULL ? cb->node : WT_DEFAULT_NODE,
             cb->service != NULL ? cb->service : WT_DEFAULT_SERVICE);
 
@@ -888,7 +902,7 @@ static int wt_config(oconfig_item_t *ci) {
     if (strcasecmp("Node", child->key) == 0)
       wt_config_tsd(child);
     else {
-      ERROR("write_tsdb plugin: Invalid configuration "
+      ERROR("write_tsdb2 plugin: Invalid configuration "
             "option: %s.",
             child->key);
     }
@@ -898,7 +912,7 @@ static int wt_config(oconfig_item_t *ci) {
 }
 
 void module_register(void) {
-  plugin_register_complex_config("write_tsdb", wt_config);
+  plugin_register_complex_config("write_tsdb2", wt_config);
 }
 
 /* vim: set sw=4 ts=4 sts=4 tw=78 et : */
