@@ -242,8 +242,9 @@ size_t writefunc(void *ptr, size_t size, size_t nmemb, void *s)
 /* Reset the metric buffer
  */
 static void wt_reset_buffer(struct wt_callback *cb) {
-  //FIXME must free the previous buffer here
+  json_object_put(cb->json_buffer);
   cb->json_buffer = json_object_new_array();
+  cb->buffer_metric_size = 0;
 }
 
 static int wt_flush(cdtime_t timeout,
@@ -297,7 +298,6 @@ static int wt_write_nolock(struct wt_callback *cb){
   }
 
   wt_reset_buffer(cb);
-  cb->buffer_metric_size = 0;
   return 0;
 }
 
@@ -405,28 +405,28 @@ static int wt_format_tags(json_object *dp, const value_list_t *vl,
     if (temp) {
       wt_add_tag(tags_array, temp, vl->plugin);
       //TSDB_STRING_APPEND_SPRINTF(temp, vl->plugin);
-      //sfree(temp);
+      sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_PLUGININSTANCE]);
     if (temp) {
       wt_add_tag(tags_array, temp, vl->plugin_instance);
       //TSDB_STRING_APPEND_SPRINTF(temp, vl->plugin_instance);
-      //sfree(temp);
+      sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_TYPE]);
     if (temp) {
       wt_add_tag(tags_array, temp, vl->type);
       //TSDB_STRING_APPEND_SPRINTF(temp, vl->type);
-      //sfree(temp);
+      sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_TYPEINSTANCE]);
     if (temp) {
       wt_add_tag(tags_array, temp, vl->type_instance);
       //TSDB_STRING_APPEND_SPRINTF(temp, vl->type_instance);
-      //sfree(temp);
+      sfree(temp);
     }
 
     if (ds_name) {
@@ -434,7 +434,7 @@ static int wt_format_tags(json_object *dp, const value_list_t *vl,
       if (temp) {
         wt_add_tag(tags_array, temp, ds_name);
         //TSDB_STRING_APPEND_SPRINTF(temp, ds_name);
-        //sfree(temp);
+        sfree(temp);
       }
     }
 
@@ -459,18 +459,15 @@ static int wt_format_tags(json_object *dp, const value_list_t *vl,
         char *key = meta_toc[i] + sizeof(TSDB_META_TAG_ADD_PREFIX) - 1;
 
         wt_add_tag(tags_array, key, temp);
-        //n = ssnprintf(ptr, remaining_len, " %s=%s", key, temp);
       }
-      //if (temp)
-      //  sfree(temp);
-      //free(meta_toc[i]);
+      if (temp)
+        sfree(temp);
+      free(meta_toc[i]);
     }
-    //if (meta_toc)
-    //  free(meta_toc);
+    if (meta_toc)
+      free(meta_toc);
 
-  } //else {
-    //ret[0] = '\0';
-  //}
+  }
 
 #undef TSDB_META_DATA_GET_STRING
   json_object_object_add(dp, "tags", tags_array);
