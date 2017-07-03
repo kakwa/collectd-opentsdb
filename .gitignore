@@ -51,8 +51,13 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+# CMake stuff
 CMakeCache.txt
 CMakeFiles/
 Makefile
 cmake_install.cmake
 install_manifest.txt
+
+# Vim stuff
+*.swp
+*.swo
