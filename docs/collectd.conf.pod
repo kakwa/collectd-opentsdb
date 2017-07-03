@@ -1,0 +1,201 @@
+=head2 Plugin C<write_opentsdb>
+
+The C<write_opentsdb> plugin writes data to I<OpenTSDB>, a scalable open-source
+time series database. The plugin connects to a I<TSD>, a masterless, no shared
+state daemon that ingests metrics and stores them in HBase. The plugin uses
+I<HTTP(S)> and I<JSON> unlike the default C<write_tsdb> plugin. The data will
+be sent in blocks of 30 metrics (configurable).
+
+
+=head3 Synopsis
+
+  <Plugin write_opentsdb>
+          <Node>
+                  URL "http://localhost:4242"
+                  JsonHostTag true
+                  AutoFqdnFailback true
+                  StoreRates false
+                  AlwaysAppendDS false
+          </Node>
+  </Plugin>
+
+=head3 Options
+
+The C<write_opentsdb> plugin accepts the following configuration options:
+
+=over 4
+
+=item B<Url> I<URL>
+
+URL of the I<OpenTSDB> master. Mandatory
+
+=item B<BufferSize> I<Integer>
+
+Number of metrics to buffers before POSTing to I<OpenTSDB>. I<OpenTSDB> limits
+this number at 50, so it should be lower than that.
+
+=item B<JsonHostTag> B<true>|B<false>
+
+Try to parse the hostname as the set of static tags for datapoints.
+
+The I<Hostname> (Global Option) should be set as followed for this to work:
+
+  Hostname "{\"fqdn\": \"http.node1.example.org\", \"env\": \"prod\", \"role\": \"http\"}"
+
+=item B<AutoFqdnFailback> B<true>|B<false>
+
+If B<JsonHostTag> and this option is set B<true>, if the I<Hostname> failed to be parsed as
+json, this plugin fallbacks to setting fqdn to I<Hostname>.
+
+=item B<VerifyPeer> B<true>|B<false>
+
+Enable or disable peer SSL certificate verification. See
+L<http://curl.haxx.se/docs/sslcerts.html> for details. Enabled by default.
+
+=item B<VerifyHost> B<true|false>
+
+Enable or disable peer host name verification. If enabled, the plugin checks if
+the C<Common Name> or a C<Subject Alternate Name> field of the SSL certificate
+matches the host name provided by the B<URL> option. If this identity check
+fails, the connection is aborted. Obviously, only works when connecting to a
+SSL enabled server. Enabled by default.
+
+=item B<CACert> I<File>
+
+File that holds one or more SSL certificates. If you want to use HTTPS you will
+possibly need this option. What CA certificates come bundled with C<libcurl>
+and are checked by default depends on the distribution you use.
+
+=item B<CAPath> I<Directory>
+
+Directory holding one or more CA certificate files. You can use this if for
+some reason all the needed CA certificates aren't in the same file and can't be
+pointed to using the B<CACert> option. Requires C<libcurl> to be built against
+OpenSSL.
+
+=item B<ClientKey> I<File>
+
+File that holds the private key in PEM format to be used for certificate-based
+authentication.
+
+=item B<ClientCert> I<File>
+
+File that holds the SSL certificate to be used for certificate-based
+authentication.
+
+=item B<ClientKeyPass> I<Password>
+
+Password required to load the private key in B<ClientKey>.
+
+=item B<Header> I<Header>
+
+A HTTP header to add to the request.  Multiple headers are added if this option is specified more than once.  Example:
+
+  Header "X-Custom-Header: custom_value"
+
+=item B<SSLVersion> B<SSLv2>|B<SSLv3>|B<TLSv1>|B<TLSv1_0>|B<TLSv1_1>|B<TLSv1_2>|B<TLSv1_3>
+
+Define which SSL protocol version must be used. By default C<libcurl> will
+attempt to figure out the remote SSL protocol version. See
+L<curl_easy_setopt(3)> for more details.
+
+=item B<Timeout> I<Seconds>
+
+Request timeout in seconds.
+
+
+=head3 write_opentsdb meta_data (OpenTSDB tags)
+
+I<OpenTSDB> relies heavily on tags, which do not marry well with I<Collectd>.
+For that, C<write_opentsdb> can use collectd filter rules to rework the metrics with a
+I<Collecd> I<PreCache> chain.
+
+Synopsys:
+
+ LoadPlugin match_regex
+ LoadPlugin target_set
+
+ <Chain "PreCache">
+   <Rule "opentsdb_cpu">
+     <Match "regex">
+       Plugin "^cpu$"
+     </Match>
+     <Target "set">
+       MetaDataSet "tsdb_tag_pluginInstance" "cpu"
+       MetaDataSet "tsdb_tag_type" ""
+       MetaDataSet "tsdb_prefix" "sys."
+     </Target>
+   </Rule>
+   <Rule "opentsdb_df">
+     <Match "regex">
+       Plugin "^df$"
+     </Match>
+     <Target "set">
+       MetaDataSet "tsdb_tag_pluginInstance" "mount"
+       MetaDataSet "tsdb_tag_type" ""
+       MetaDataSet "tsdb_prefix" "sys."
+     </Target>
+   </Rule>
+   <Rule "opentsdb_disk">
+     <Match "regex">
+       Plugin "^disk$"
+     </Match>
+     <Target "set">
+       MetaDataSet "tsdb_tag_pluginInstance" "disk"
+       MetaDataSet "tsdb_prefix" "sys."
+     </Target>
+   </Rule>
+   <Rule "opentsdb_interface">
+     <Match "regex">
+       Plugin "^interface$"
+     </Match>
+     <Target "set">
+       MetaDataSet "tsdb_tag_pluginInstance" "iface"
+       MetaDataSet "tsdb_prefix" "sys."
+     </Target>
+   </Rule>
+   <Rule "opentsdb_load">
+     <Match "regex">
+       Plugin "^loac$"
+     </Match>
+     <Target "set">
+       MetaDataSet "tsdb_tag_type" ""
+       MetaDataSet "tsdb_prefix" "sys."
+     </Target>
+   </Rule>
+   <Rule "opentsdb_swap">
+     <Match "regex">
+       Plugin "^swap$"
+     </Match>
+     <Target "set">
+       MetaDataSet "tsdb_prefix" "sys."
+     </Target>
+   </Rule>
+ </Chain>
+
+=item B<tsdb_prefix> I<String>
+
+Will prefix the OpenTSDB <metric> with given string (also prefix tsdb_id if defined)
+
+=item B<tsdb_id> I<String>
+
+Replace the metric name with this string.
+
+=item B<tsdb_tag_plugin> and B<tsdb_tag_pluginInstance>
+
+When defined, tsdb_tag_* removes the related item from metric id.
+
+=item B<tsdb_tag_type> and B<tsdb_tag_typeInstance>
+
+If it is not empty, it will be the key of an opentsdb tag (the value is the item itself)
+
+=item B<tsdb_tag_dsname>
+
+If it is empty, no tag is defined.
+
+=item B<tsdb_tag_add_*>
+
+Should contain "tagv". Il will add a tag. The key tagk comes from the tsdb_tag_add_*
+tag. Example : tsdb_tag_add_status adds a tag named 'status'.
+It will be sent as is to the TSDB server.
+
