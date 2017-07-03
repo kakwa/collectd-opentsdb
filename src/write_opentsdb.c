@@ -29,7 +29,11 @@
  *   Brett Hawn <bhawn at llnw.com>
  *   Kevin Bowling <kbowling@llnw.com>
  *   Yves Mettier <ymettier@free.fr>
- * write_opentsdb Authors:
+ * Based on the write_http plugin. Authors:
+ *   Florian octo Forster <octo at collectd.org>
+ *   Doug MacEachern <dougm@hyperic.com>
+ *   Paul Sadauskas <psadauskas@gmail.com>
+ * write_opentsdb plugin Authors:
  *   Pierre-Francois Carpentier <carpentier.pf@gmail.com>
  **/
 
@@ -38,9 +42,8 @@
  *
  * <Plugin write_opentsdb>
  *   <Node>
- *     Host "localhost"
+ *     Host "http://localhost:4242"
  *     Port "4242"
- *     HostTags "status=production deviceclass=www"
  *   </Node>
  * </Plugin>
  *
@@ -368,7 +371,6 @@ static int wt_format_tags(json_object *dp, const value_list_t *vl,
   char **meta_toc;
   const char *host = vl->host;
   int i, n;
-  //json_object * tags_array = json_object_new_object();
   json_object *tags_array = NULL;
 
   if(cb->json_host_tag){
@@ -404,28 +406,24 @@ static int wt_format_tags(json_object *dp, const value_list_t *vl,
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_PLUGIN]);
     if (temp) {
       wt_add_tag(tags_array, temp, vl->plugin);
-      //TSDB_STRING_APPEND_SPRINTF(temp, vl->plugin);
       sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_PLUGININSTANCE]);
     if (temp) {
       wt_add_tag(tags_array, temp, vl->plugin_instance);
-      //TSDB_STRING_APPEND_SPRINTF(temp, vl->plugin_instance);
       sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_TYPE]);
     if (temp) {
       wt_add_tag(tags_array, temp, vl->type);
-      //TSDB_STRING_APPEND_SPRINTF(temp, vl->type);
       sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_TYPEINSTANCE]);
     if (temp) {
       wt_add_tag(tags_array, temp, vl->type_instance);
-      //TSDB_STRING_APPEND_SPRINTF(temp, vl->type_instance);
       sfree(temp);
     }
 
@@ -433,7 +431,6 @@ static int wt_format_tags(json_object *dp, const value_list_t *vl,
       TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_DSNAME]);
       if (temp) {
         wt_add_tag(tags_array, temp, ds_name);
-        //TSDB_STRING_APPEND_SPRINTF(temp, ds_name);
         sfree(temp);
       }
     }
