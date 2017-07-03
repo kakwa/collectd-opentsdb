@@ -1,5 +1,5 @@
 /**
- * collectd - src/write_tsdb2.c
+ * collectd - src/write_opentsdb.c
  * Copyright (C) 2012       Pierre-Yves Ritschard
  * Copyright (C) 2011       Scott Sanders
  * Copyright (C) 2009       Paul Sadauskas
@@ -25,16 +25,18 @@
  *   Paul Sadauskas <psadauskas at gmail.com>
  *   Scott Sanders <scott at jssjr.com>
  *   Pierre-Yves Ritschard <pyr at spootnik.org>
- * write_tsdb2 Authors:
+ * Based on the write_tsdb plugin. Authors:
  *   Brett Hawn <bhawn at llnw.com>
  *   Kevin Bowling <kbowling@llnw.com>
  *   Yves Mettier <ymettier@free.fr>
+ * write_opentsdb Authors:
+ *   Pierre-Francois Carpentier <carpentier.pf@gmail.com>
  **/
 
-/* write_tsdb2 plugin configuation example
+/* write_opentsdb plugin configuation example
  * --------------------------------------
  *
- * <Plugin write_tsdb2>
+ * <Plugin write_opentsdb>
  *   <Node>
  *     Host "localhost"
  *     Port "4242"
@@ -42,7 +44,7 @@
  *   </Node>
  * </Plugin>
  *
- * write_tsdb2 meta_data
+ * write_opentsdb meta_data
  * --------------------
  *  - tsdb_prefix : Will prefix the OpenTSDB <metric> (also prefix tsdb_id if
  * defined)
@@ -60,7 +62,7 @@
  *                            : named 'status'.
  *                            : It will be sent as is to the TSDB server.
  *
- * write_tsdb2 plugin filter rules example
+ * write_opentsdb plugin filter rules example
  * --------------------------------------
  *
  * <Chain "PreCache">
@@ -191,8 +193,6 @@ struct wt_callback {
 
   char *node;
 
-  char *host_tags;
-
   // Curl Parameters
   CURL *curl;
   struct curl_slist *headers;
@@ -223,11 +223,7 @@ struct wt_callback {
   // number of metrics in buffer
   int buffer_metric_size;
 
-  char send_buf[WT_SEND_BUF_SIZE];
-  size_t send_buf_free;
-  size_t send_buf_fill;
-  cdtime_t send_buf_init_time;
-
+  // mutex used for emptying/happending in the buffer
   pthread_mutex_t send_lock;
 
   _Bool connect_failed_log_enabled;
@@ -236,6 +232,12 @@ struct wt_callback {
 static void wt_callback_free(void *data);
 int wt_config_curl(struct wt_callback *cb);
 static int wt_write_nolock(struct wt_callback *cb);
+
+// Discard return from libcurl
+size_t writefunc(void *ptr, size_t size, size_t nmemb, void *s)
+{
+  return size*nmemb;
+}
 
 /* Reset the metric buffer
  */
@@ -259,32 +261,41 @@ static int wt_flush(cdtime_t timeout,
   return status;
 }
 
-static void wh_log_http_error(struct wt_callback *cb) {
-  if (!cb->log_http_error)
-    return;
-
+int wh_log_http_error(struct wt_callback *cb) {
+  int ret = 1;
   long http_code = 0;
 
   curl_easy_getinfo(cb->curl, CURLINFO_RESPONSE_CODE, &http_code);
 
-  if (http_code != 200)
-    INFO("write_http plugin: HTTP Error code: %lu", http_code);
+  if (http_code != 200 && http_code != 0){
+    ret = 0;
+    if(cb->connect_failed_log_enabled)
+      ERROR("write_opentsdb plugin: HTTP Error code: %lu", http_code);
+  }
+  return ret;
 }
 
+/* OpenTSDB writer
+ * Must be called wrapped around locks (use cb->send_lock for that)
+ */
 static int wt_write_nolock(struct wt_callback *cb){
   const char *data = json_object_to_json_string(cb->json_buffer);
+
+  //for primitive debugging
   //printf("%s\n", data);
 
   int status = 0;
   curl_easy_setopt(cb->curl, CURLOPT_POSTFIELDS, data);
   status = curl_easy_perform(cb->curl);
 
-  wh_log_http_error(cb);
-  if (status != CURLE_OK) {
-    ERROR("write_http plugin: curl_easy_perform failed with "
+  int ret =  wh_log_http_error(cb);
+
+  if (cb->connect_failed_log_enabled && ret && status != CURLE_OK) {
+    ERROR("write_opentsdb plugin: curl_easy_perform failed with "
           "status %i: %s",
           status, cb->curl_errbuf);
   }
+
   wt_reset_buffer(cb);
   cb->buffer_metric_size = 0;
   return 0;
@@ -435,7 +446,7 @@ static int wt_format_tags(json_object *dp, const value_list_t *vl,
         continue;
       }
       if ('\0' == meta_toc[i][sizeof(TSDB_META_TAG_ADD_PREFIX) - 1]) {
-        ERROR("write_tsdb2 plugin: meta_data tag '%s' is unknown (host=%s, "
+        ERROR("write_opentsdb plugin: meta_data tag '%s' is unknown (host=%s, "
               "plugin=%s, type=%s)",
               temp, vl->host, vl->plugin, vl->type);
         free(meta_toc[i]);
@@ -589,7 +600,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
   const char *node = cb->node ? cb->node : WT_DEFAULT_NODE;
 
   if (0 != strcmp(ds->type, vl->type)) {
-    ERROR("write_tsdb2 plugin: DS type does not match "
+    ERROR("write_opentsdb plugin: DS type does not match "
           "value list type");
     return -1;
   }
@@ -605,7 +616,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
     /* Copy the identifier to 'key' and escape it. */
     status = wt_format_name(key, sizeof(key), vl, cb, ds_name);
     if (status != 0) {
-      ERROR("write_tsdb2 plugin: error with format_name");
+      ERROR("write_opentsdb plugin: error with format_name");
       return status;
     }
 
@@ -615,7 +626,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
     status =
         wt_format_values(values, sizeof(values), i, ds, vl, cb->store_rates);
     if (status != 0) {
-      ERROR("write_tsdb2 plugin: error with "
+      ERROR("write_opentsdb plugin: error with "
             "wt_format_values");
       return status;
     }
@@ -630,15 +641,9 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
     json_object *js_values = json_object_new_string(values);
     json_object_object_add(dp, "value", js_values);
 
-
-//  status = ssnprintf(
-//      message, sizeof(message), "put %s %.0f %s fqdn=%s %s %s %s\r\n", key,
-//      CDTIME_T_TO_DOUBLE(time), value, host, value_tags, tags, host_tags);
-//    CDTIME_T_TO_DOUBLE(vl->time)
-
     status = wt_format_tags(dp, vl, cb, ds_name);
     if (status != 0) {
-      ERROR("write_tsdb2 plugin: error with format_tags");
+      ERROR("write_opentsdb plugin: error with format_tags");
       return status;
     }
 
@@ -652,7 +657,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
         if (cb->connect_failed_log_enabled) {
           /* Do not log if socket is not enabled : it was logged already
            * in wt_callback_init(). */
-          ERROR("write_tsdb2 plugin (%s): error with "
+          ERROR("write_opentsdb plugin (%s): error with "
                 "wt_flush_message",
                 node);
         }
@@ -701,11 +706,10 @@ static int wt_config_tsd(oconfig_item_t *ci) {
 
   cb = calloc(1, sizeof(*cb));
   if (cb == NULL) {
-    ERROR("write_tsdb2 plugin: calloc failed.");
+    ERROR("write_opentsdb plugin: calloc failed.");
     return -1;
   }
   cb->node = NULL;
-  cb->host_tags = NULL;
   cb->store_rates = 0;
   cb->buffer_metric_max = 30;
   cb->buffer_metric_size = 0;
@@ -782,7 +786,7 @@ static int wt_config_tsd(oconfig_item_t *ci) {
         cb->sslversion = CURL_SSLVERSION_TLSv1_3;
 #endif
       else {
-        ERROR("write_http plugin: Invalid SSLVersion "
+        ERROR("write_opentsdb plugin: Invalid SSLVersion "
               "option: %s.",
               value);
         status = EINVAL;
@@ -790,7 +794,7 @@ static int wt_config_tsd(oconfig_item_t *ci) {
       sfree(value);
     }
     else {
-      ERROR("write_tsdb2 plugin: Invalid configuration "
+      ERROR("write_opentsdb plugin: Invalid configuration "
             "option: %s.",
             child->key);
     }
@@ -801,7 +805,7 @@ static int wt_config_tsd(oconfig_item_t *ci) {
   cb->json_buffer = json_object_new_array();
   cb->buffer_metric_size = 0;
 
-  ssnprintf(callback_name, sizeof(callback_name), "write_tsdb2/%s",
+  ssnprintf(callback_name, sizeof(callback_name), "write_opentsdb/%s",
             cb->node != NULL ? cb->node : WT_DEFAULT_NODE);
 
   user_data_t user_data = {.data = cb, .free_func = wt_callback_free};
@@ -809,7 +813,7 @@ static int wt_config_tsd(oconfig_item_t *ci) {
   plugin_register_write(callback_name, wt_write, &user_data);
 
   user_data.free_func = NULL;
-  //plugin_register_flush(callback_name, wt_flush, &user_data);
+  plugin_register_flush(callback_name, wt_flush, &user_data);
 
   return 0;
 }
@@ -831,6 +835,7 @@ int wt_config_curl(struct wt_callback *cb){
     curl_easy_setopt(cb->curl, CURLOPT_TIMEOUT_MS, (long)cb->timeout);
 
   curl_easy_setopt(cb->curl, CURLOPT_NOSIGNAL, 1L);
+  curl_easy_setopt(cb->curl, CURLOPT_WRITEFUNCTION, writefunc);
   curl_easy_setopt(cb->curl, CURLOPT_USERAGENT, COLLECTD_USERAGENT);
 
   cb->headers = curl_slist_append(cb->headers, "Accept:  */*");
@@ -875,7 +880,6 @@ static void wt_callback_free(void *data) {
   wt_write_nolock(cb);
 
   sfree(cb->node);
-  sfree(cb->host_tags);
 
   if (cb->curl != NULL) {
     curl_easy_cleanup(cb->curl);
@@ -906,7 +910,7 @@ static int wt_config(oconfig_item_t *ci) {
     if (strcasecmp("Node", child->key) == 0)
       wt_config_tsd(child);
     else {
-      ERROR("write_tsdb2 plugin: Invalid configuration "
+      ERROR("write_opentsdb plugin: Invalid configuration "
             "option: %s.",
             child->key);
     }
@@ -917,7 +921,7 @@ static int wt_config(oconfig_item_t *ci) {
 /* Registering of the module
  */
 void module_register(void) {
-  plugin_register_complex_config("write_tsdb2", wt_config);
+  plugin_register_complex_config("write_opentsdb", wt_config);
 }
 
 /* vim: set sw=4 ts=4 sts=4 tw=78 et : */

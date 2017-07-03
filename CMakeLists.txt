@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.6)
-project (writer_tsdb2)
+project (write_opentsdb)
 include(ExternalProject)
 
 set(VERSION 0.0.1)
@@ -57,14 +57,14 @@ include_directories(
     ${JSON-C_INCLUDE_DIRS}
 )
 
-add_library(write_tsdb2
+add_library(write_opentsdb
     "SHARED"
-    src/write_tsdb2.c
+    src/write_opentsdb.c
 )
 
-SET_TARGET_PROPERTIES(write_tsdb2 PROPERTIES PREFIX "")
+SET_TARGET_PROPERTIES(write_opentsdb PROPERTIES PREFIX "")
 
-target_link_libraries(write_tsdb2
+target_link_libraries(write_opentsdb
     ${CURL_LIBRARIES}
     ${DL_LIBRARIES}
     ${GCC_S_LIBRARIES}
@@ -72,7 +72,7 @@ target_link_libraries(write_tsdb2
     ${JSON-C_LIBRARIES}
 )
 
-INSTALL(TARGETS write_tsdb2
+INSTALL(TARGETS write_opentsdb
   LIBRARY DESTINATION lib/collectd
   ARCHIVE DESTINATION lib/collectd
 )
