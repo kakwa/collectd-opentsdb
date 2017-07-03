@@ -42,6 +42,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
 find_package(CURL REQUIRED)
 find_package(collectd REQUIRED)
+find_package(JSON-C REQUIRED)
 
 MESSAGE(STATUS "Collectd include dir: ${COLLECTD_INCLUDE_DIR}")
 MESSAGE(STATUS "Curl include directory: ${CURL_INCLUDE_DIRS}")
@@ -53,6 +54,7 @@ include_directories(
     inc/
     ${COLLECTD_INCLUDE_DIR}
     ${CURL_INCLUDE_DIRS}
+    ${JSON-C_INCLUDE_DIRS}
 )
 
 add_library(write_tsdb2
@@ -67,6 +69,7 @@ target_link_libraries(write_tsdb2
     ${DL_LIBRARIES}
     ${GCC_S_LIBRARIES}
     ${PTHREAD_LIBRARIES}
+    ${JSON-C_LIBRARIES}
 )
 
 INSTALL(TARGETS write_tsdb2
