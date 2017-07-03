@@ -15,7 +15,7 @@ It adds a few improvement over the stock write_tsdb plugin:
 
 The plugin documentation is available here:
 
-* [docs/collectd.conf.pod]()
+* [docs/collectd.conf.pod](https://github.com/kakwa/collectd-tsdb2/blob/master/docs/collectd.conf.pod)
 
 ## Dependencies
 
