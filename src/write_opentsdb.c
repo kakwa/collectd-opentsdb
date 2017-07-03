@@ -717,7 +717,7 @@ static int wt_config_tsd(oconfig_item_t *ci) {
   for (int i = 0; i < ci->children_num; i++) {
     oconfig_item_t *child = ci->children + i;
 
-    if (strcasecmp("Url", child->key) == 0){
+    if (strcasecmp("URL", child->key) == 0){
       char *base_url = NULL;
       cf_util_get_string(child, &base_url);
       cb->node = calloc(10 + strlen(base_url), 1);
