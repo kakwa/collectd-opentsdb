@@ -129,6 +129,13 @@
  *
  */
 
+
+/* Plugin entry points:
+ * - write ->  wt_write
+ * - flush -> wt_flush
+ * - complex_config -> wt_config;
+ */
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdint.h>
@@ -139,8 +146,9 @@
 #include <string.h>
 #include <inttypes.h>
 #include <curl/curl.h>
+#include <json-c/json.h>
 
-
+#define COLLECTD_USERAGENT "collectd"
 #define HAVE__BOOL 1
 #define FP_LAYOUT_NEED_NOTHING 1
 
@@ -154,11 +162,7 @@
 #include <netdb.h>
 
 #ifndef WT_DEFAULT_NODE
-#define WT_DEFAULT_NODE "localhost"
-#endif
-
-#ifndef WT_DEFAULT_SERVICE
-#define WT_DEFAULT_SERVICE "4242"
+#define WT_DEFAULT_NODE "http://localhost:4242"
 #endif
 
 #ifndef WT_DEFAULT_ESCAPE
@@ -184,23 +188,40 @@ static const char *meta_tag_metric_id[] = {
  * Private variables
  */
 struct wt_callback {
-  int sock_fd;
 
   char *node;
-  char *service;
+
   char *host_tags;
 
-  _Bool verify_peer;
-  _Bool verify_host;
+  // Curl Parameters
+  CURL *curl;
+  struct curl_slist *headers;
+  char curl_errbuf[CURL_ERROR_SIZE];
+  int timeout;
   char *cacert;
   char *capath;
   char *clientkey;
   char *clientcert;
   char *clientkeypass;
   long sslversion;
+  _Bool verify_peer;
+  _Bool verify_host;
+  _Bool log_http_error;
 
   _Bool store_rates;
   _Bool always_append_ds;
+
+  // set to true if host contains a json structure with tags
+  _Bool json_host_tag;
+  // set to true to set tag fqdn to host if host is not a parsable json structure
+  // only useful if json_host_tag is set to true
+  _Bool auto_fqdn_failback;
+  // Maximum number of metrics in buffer
+  int buffer_metric_max;
+  // the Json buffer
+  json_object *json_buffer;
+  // number of metrics in buffer
+  int buffer_metric_size;
 
   char send_buf[WT_SEND_BUF_SIZE];
   size_t send_buf_free;
@@ -212,150 +233,15 @@ struct wt_callback {
   _Bool connect_failed_log_enabled;
 };
 
-/*
- * Functions
+static void wt_callback_free(void *data);
+int wt_config_curl(struct wt_callback *cb);
+static int wt_write_nolock(struct wt_callback *cb);
+
+/* Reset the metric buffer
  */
 static void wt_reset_buffer(struct wt_callback *cb) {
-  memset(cb->send_buf, 0, sizeof(cb->send_buf));
-  cb->send_buf_free = sizeof(cb->send_buf);
-  cb->send_buf_fill = 0;
-  cb->send_buf_init_time = cdtime();
-}
-
-static int wt_send_buffer(struct wt_callback *cb) {
-  ssize_t status = 0;
-
-  status = swrite(cb->sock_fd, cb->send_buf, strlen(cb->send_buf));
-  if (status < 0) {
-    char errbuf[1024];
-    ERROR("write_tsdb2 plugin: send failed with status %zi (%s)", status,
-          sstrerror(errno, errbuf, sizeof(errbuf)));
-
-    close(cb->sock_fd);
-    cb->sock_fd = -1;
-
-    return -1;
-  }
-
-  return 0;
-}
-
-/* NOTE: You must hold cb->send_lock when calling this function! */
-static int wt_flush_nolock(cdtime_t timeout, struct wt_callback *cb) {
-  int status;
-
-  DEBUG("write_tsdb2 plugin: wt_flush_nolock: timeout = %.3f; "
-        "send_buf_fill = %zu;",
-        (double)timeout, cb->send_buf_fill);
-
-  /* timeout == 0  => flush unconditionally */
-  if (timeout > 0) {
-    cdtime_t now;
-
-    now = cdtime();
-    if ((cb->send_buf_init_time + timeout) > now)
-      return 0;
-  }
-
-  if (cb->send_buf_fill == 0) {
-    cb->send_buf_init_time = cdtime();
-    return 0;
-  }
-
-  status = wt_send_buffer(cb);
-  wt_reset_buffer(cb);
-
-  return status;
-}
-
-static int wt_callback_init(struct wt_callback *cb) {
-  struct addrinfo *ai_list;
-  int status;
-
-  const char *node = cb->node ? cb->node : WT_DEFAULT_NODE;
-  const char *service = cb->service ? cb->service : WT_DEFAULT_SERVICE;
-
-  if (cb->sock_fd > 0)
-    return 0;
-
-  struct addrinfo ai_hints = {.ai_family = AF_UNSPEC,
-                              .ai_flags = AI_ADDRCONFIG,
-                              .ai_socktype = SOCK_STREAM};
-
-  status = getaddrinfo(node, service, &ai_hints, &ai_list);
-  if (status != 0) {
-    if (cb->connect_failed_log_enabled) {
-      ERROR("write_tsdb2 plugin: getaddrinfo (%s, %s) failed: %s", node, service,
-            gai_strerror(status));
-      cb->connect_failed_log_enabled = 0;
-    }
-    return -1;
-  }
-
-  assert(ai_list != NULL);
-  for (struct addrinfo *ai_ptr = ai_list; ai_ptr != NULL;
-       ai_ptr = ai_ptr->ai_next) {
-    cb->sock_fd =
-        socket(ai_ptr->ai_family, ai_ptr->ai_socktype, ai_ptr->ai_protocol);
-    if (cb->sock_fd < 0)
-      continue;
-
-    set_sock_opts(cb->sock_fd);
-
-    status = connect(cb->sock_fd, ai_ptr->ai_addr, ai_ptr->ai_addrlen);
-    if (status != 0) {
-      close(cb->sock_fd);
-      cb->sock_fd = -1;
-      continue;
-    }
-
-    break;
-  }
-
-  freeaddrinfo(ai_list);
-
-  if (cb->sock_fd < 0) {
-    if (cb->connect_failed_log_enabled) {
-      char errbuf[1024];
-      ERROR("write_tsdb2 plugin: Connecting to %s:%s failed. "
-            "The last error was: %s",
-            node, service, sstrerror(errno, errbuf, sizeof(errbuf)));
-      cb->connect_failed_log_enabled = 0;
-    }
-    return -1;
-  }
-
-  if (0 == cb->connect_failed_log_enabled) {
-    WARNING("write_tsdb2 plugin: Connecting to %s:%s succeeded.", node, service);
-    cb->connect_failed_log_enabled = 1;
-  }
-  wt_reset_buffer(cb);
-
-  return 0;
-}
-
-static void wt_callback_free(void *data) {
-  struct wt_callback *cb;
-
-  if (data == NULL)
-    return;
-
-  cb = data;
-
-  pthread_mutex_lock(&cb->send_lock);
-
-  wt_flush_nolock(0, cb);
-
-  close(cb->sock_fd);
-  cb->sock_fd = -1;
-
-  sfree(cb->node);
-  sfree(cb->service);
-  sfree(cb->host_tags);
-
-  pthread_mutex_destroy(&cb->send_lock);
-
-  sfree(cb);
+  //FIXME must free the previous buffer here
+  cb->json_buffer = json_object_new_array();
 }
 
 static int wt_flush(cdtime_t timeout,
@@ -364,30 +250,44 @@ static int wt_flush(cdtime_t timeout,
   struct wt_callback *cb;
   int status;
 
-  if (user_data == NULL)
-    return -EINVAL;
-
   cb = user_data->data;
 
   pthread_mutex_lock(&cb->send_lock);
-
-  if (cb->sock_fd < 0) {
-    status = wt_callback_init(cb);
-    if (status != 0) {
-      if (cb->connect_failed_log_enabled || cb->sock_fd >= 0) {
-        /* Do not log if socket is not enabled : it was logged already
-         * in wt_callback_init(). */
-        ERROR("write_tsdb2 plugin: wt_callback_init failed.");
-      }
-      pthread_mutex_unlock(&cb->send_lock);
-      return -1;
-    }
-  }
-
-  status = wt_flush_nolock(timeout, cb);
+  wt_write_nolock(cb);
   pthread_mutex_unlock(&cb->send_lock);
 
   return status;
+}
+
+static void wh_log_http_error(struct wt_callback *cb) {
+  if (!cb->log_http_error)
+    return;
+
+  long http_code = 0;
+
+  curl_easy_getinfo(cb->curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+  if (http_code != 200)
+    INFO("write_http plugin: HTTP Error code: %lu", http_code);
+}
+
+static int wt_write_nolock(struct wt_callback *cb){
+  const char *data = json_object_to_json_string(cb->json_buffer);
+  //printf("%s\n", data);
+
+  int status = 0;
+  curl_easy_setopt(cb->curl, CURLOPT_POSTFIELDS, data);
+  status = curl_easy_perform(cb->curl);
+
+  wh_log_http_error(cb);
+  if (status != CURLE_OK) {
+    ERROR("write_http plugin: curl_easy_perform failed with "
+          "status %i: %s",
+          status, cb->curl_errbuf);
+  }
+  wt_reset_buffer(cb);
+  cb->buffer_metric_size = 0;
+  return 0;
 }
 
 static int wt_format_values(char *ret, size_t ret_len, int ds_num,
@@ -444,14 +344,36 @@ static int wt_format_values(char *ret, size_t ret_len, int ds_num,
   return 0;
 }
 
-static int wt_format_tags(char *ret, int ret_len, const value_list_t *vl,
+static int wt_add_tag(json_object *tags_array, const char *key, const char *value){
+  json_object *tag_value = json_object_new_string(value);
+  json_object_object_add(tags_array, key, tag_value);
+  return 0;
+}
+
+static int wt_format_tags(json_object *dp, const value_list_t *vl,
                           const struct wt_callback *cb, const char *ds_name) {
   int status;
   char *temp = NULL;
-  char *ptr = ret;
-  size_t remaining_len = ret_len;
   char **meta_toc;
+  const char *host = vl->host;
   int i, n;
+  //json_object * tags_array = json_object_new_object();
+  json_object *tags_array = NULL;
+
+  if(cb->json_host_tag){
+    tags_array = json_tokener_parse(host);
+    if((tags_array == NULL) && cb->auto_fqdn_failback){
+      DEBUG("Failed to parse json host '%s', fallback to simple fqdn tag", host);
+      tags_array = json_object_new_object();
+      wt_add_tag(tags_array, "fqdn", host);
+    } else if((tags_array == NULL)) {
+      ERROR("Failed to parse json host '%s'", host); 
+      return 1;
+    }
+  } else {
+    tags_array = json_object_new_object();
+    wt_add_tag(tags_array, "fqdn", host);
+  }
 #define TSDB_META_TAG_ADD_PREFIX "tsdb_tag_add_"
 
 #define TSDB_META_DATA_GET_STRING(tag)                                         \
@@ -467,55 +389,41 @@ static int wt_format_tags(char *ret, int ret_len, const value_list_t *vl,
     }                                                                          \
   } while (0)
 
-#define TSDB_STRING_APPEND_SPRINTF(key, value)                                 \
-  do {                                                                         \
-    int n;                                                                     \
-    const char *k = (key);                                                     \
-    const char *v = (value);                                                   \
-    if (k[0] != '\0' && v[0] != '\0') {                                        \
-      n = ssnprintf(ptr, remaining_len, " %s=%s", k, v);                       \
-      if (n >= remaining_len) {                                                \
-        ptr[0] = '\0';                                                         \
-      } else {                                                                 \
-        char *ptr2 = ptr + 1;                                                  \
-        while (NULL != (ptr2 = strchr(ptr2, ' ')))                             \
-          ptr2[0] = '_';                                                       \
-        ptr += n;                                                              \
-        remaining_len -= n;                                                    \
-      }                                                                        \
-    }                                                                          \
-  } while (0)
-
   if (vl->meta) {
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_PLUGIN]);
     if (temp) {
-      TSDB_STRING_APPEND_SPRINTF(temp, vl->plugin);
-      sfree(temp);
+      wt_add_tag(tags_array, temp, vl->plugin);
+      //TSDB_STRING_APPEND_SPRINTF(temp, vl->plugin);
+      //sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_PLUGININSTANCE]);
     if (temp) {
-      TSDB_STRING_APPEND_SPRINTF(temp, vl->plugin_instance);
-      sfree(temp);
+      wt_add_tag(tags_array, temp, vl->plugin_instance);
+      //TSDB_STRING_APPEND_SPRINTF(temp, vl->plugin_instance);
+      //sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_TYPE]);
     if (temp) {
-      TSDB_STRING_APPEND_SPRINTF(temp, vl->type);
-      sfree(temp);
+      wt_add_tag(tags_array, temp, vl->type);
+      //TSDB_STRING_APPEND_SPRINTF(temp, vl->type);
+      //sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_TYPEINSTANCE]);
     if (temp) {
-      TSDB_STRING_APPEND_SPRINTF(temp, vl->type_instance);
-      sfree(temp);
+      wt_add_tag(tags_array, temp, vl->type_instance);
+      //TSDB_STRING_APPEND_SPRINTF(temp, vl->type_instance);
+      //sfree(temp);
     }
 
     if (ds_name) {
       TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_DSNAME]);
       if (temp) {
-        TSDB_STRING_APPEND_SPRINTF(temp, ds_name);
-        sfree(temp);
+        wt_add_tag(tags_array, temp, ds_name);
+        //TSDB_STRING_APPEND_SPRINTF(temp, ds_name);
+        //sfree(temp);
       }
     }
 
@@ -539,30 +447,22 @@ static int wt_format_tags(char *ret, int ret_len, const value_list_t *vl,
         int n;
         char *key = meta_toc[i] + sizeof(TSDB_META_TAG_ADD_PREFIX) - 1;
 
-        n = ssnprintf(ptr, remaining_len, " %s=%s", key, temp);
-        if (n >= remaining_len) {
-          ptr[0] = '\0';
-        } else {
-          /* We do not check the tags syntax here. It should have
-           * been done earlier.
-           */
-          ptr += n;
-          remaining_len -= n;
-        }
+        wt_add_tag(tags_array, key, temp);
+        //n = ssnprintf(ptr, remaining_len, " %s=%s", key, temp);
       }
-      if (temp)
-        sfree(temp);
-      free(meta_toc[i]);
+      //if (temp)
+      //  sfree(temp);
+      //free(meta_toc[i]);
     }
-    if (meta_toc)
-      free(meta_toc);
+    //if (meta_toc)
+    //  free(meta_toc);
 
-  } else {
-    ret[0] = '\0';
-  }
+  } //else {
+    //ret[0] = '\0';
+  //}
 
 #undef TSDB_META_DATA_GET_STRING
-#undef TSDB_STRING_APPEND_SPRINTF
+  json_object_object_add(dp, "tags", tags_array);
 
   return 0;
 }
@@ -679,109 +579,14 @@ static int wt_format_name(char *ret, int ret_len, const value_list_t *vl,
   return 0;
 }
 
-static int wt_send_message(const char *key, const char *value,
-                           const char *value_tags, cdtime_t time,
-                           struct wt_callback *cb, const value_list_t *vl) {
-  int status;
-  size_t message_len;
-  char *temp = NULL;
-  const char *tags = "";
-  char message[1024];
-  const char *host_tags = cb->host_tags ? cb->host_tags : "";
-  const char *meta_tsdb = "tsdb_tags";
-  const char *host = vl->host;
-  meta_data_t *md = vl->meta;
-
-  const char *node = cb->node ? cb->node : WT_DEFAULT_NODE;
-  const char *service = cb->service ? cb->service : WT_DEFAULT_SERVICE;
-
-  /* skip if value is NaN */
-  if (value[0] == 'n')
-    return 0;
-
-  if (md) {
-    status = meta_data_get_string(md, meta_tsdb, &temp);
-    if (status == -ENOENT) {
-      /* defaults to empty string */
-    } else if (status < 0) {
-      ERROR("write_tsdb2 plugin (%s:%s): tags metadata get failure", node,
-            service);
-      sfree(temp);
-      return status;
-    } else {
-      tags = temp;
-    }
-  }
-
-  status = ssnprintf(
-      message, sizeof(message), "put %s %.0f %s fqdn=%s %s %s %s\r\n", key,
-      CDTIME_T_TO_DOUBLE(time), value, host, value_tags, tags, host_tags);
-  sfree(temp);
-  if (status < 0)
-    return -1;
-  message_len = (size_t)status;
-
-  if (message_len >= sizeof(message)) {
-    ERROR("write_tsdb2 plugin(%s:%s): message buffer too small: "
-          "Need %zu bytes.",
-          node, service, message_len + 1);
-    return -1;
-  }
-
-  pthread_mutex_lock(&cb->send_lock);
-
-  if (cb->sock_fd < 0) {
-    status = wt_callback_init(cb);
-    if (status != 0) {
-      if (cb->connect_failed_log_enabled || cb->sock_fd >= 0) {
-        /* Do not log if socket is not enabled : it was logged already
-         * in wt_callback_init(). */
-        ERROR("write_tsdb2 plugin (%s:%s): wt_callback_init failed.", node,
-              service);
-        cb->connect_failed_log_enabled = 0;
-      }
-      pthread_mutex_unlock(&cb->send_lock);
-      return -1;
-    }
-  }
-
-  if (message_len >= cb->send_buf_free) {
-    status = wt_flush_nolock(0, cb);
-    if (status != 0) {
-      pthread_mutex_unlock(&cb->send_lock);
-      return status;
-    }
-  }
-
-  /* Assert that we have enough space for this message. */
-  assert(message_len < cb->send_buf_free);
-
-  /* `message_len + 1' because `message_len' does not include the
-   * trailing null byte. Neither does `send_buffer_fill'. */
-  memcpy(cb->send_buf + cb->send_buf_fill, message, message_len + 1);
-  cb->send_buf_fill += message_len;
-  cb->send_buf_free -= message_len;
-
-  DEBUG("write_tsdb2 plugin: [%s]:%s buf %zu/%zu (%.1f %%) \"%s\"", node,
-        service, cb->send_buf_fill, sizeof(cb->send_buf),
-        100.0 * ((double)cb->send_buf_fill) / ((double)sizeof(cb->send_buf)),
-        message);
-
-  pthread_mutex_unlock(&cb->send_lock);
-
-  return 0;
-}
-
 static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
                              struct wt_callback *cb) {
   char key[10 * DATA_MAX_NAME_LEN];
   char values[512];
-  char tags[10 * DATA_MAX_NAME_LEN];
 
   int status;
 
   const char *node = cb->node ? cb->node : WT_DEFAULT_NODE;
-  const char *service = cb->service ? cb->service : WT_DEFAULT_SERVICE;
 
   if (0 != strcmp(ds->type, vl->type)) {
     ERROR("write_tsdb2 plugin: DS type does not match "
@@ -791,6 +596,8 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
 
   for (size_t i = 0; i < ds->ds_num; i++) {
     const char *ds_name = NULL;
+
+    json_object *dp = json_object_new_object();
 
     if (cb->always_append_ds || (ds->ds_num > 1))
       ds_name = ds->ds[i].name;
@@ -813,31 +620,62 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
       return status;
     }
 
-    /* Copy tags from p-pi/t-ti ds notation into tags */
-    tags[0] = '\0';
-    status = wt_format_tags(tags, sizeof(tags), vl, cb, ds_name);
+    // Add the timestamp
+    json_object *js_timestamp = json_object_new_double(CDTIME_T_TO_DOUBLE(vl->time));
+    json_object_object_add(dp, "timestamp", js_timestamp);
+    // Add the key
+    json_object  *js_key = json_object_new_string(key);
+    json_object_object_add(dp, "key", js_key);
+    // Add the value
+    json_object *js_values = json_object_new_string(values);
+    json_object_object_add(dp, "value", js_values);
+
+
+//  status = ssnprintf(
+//      message, sizeof(message), "put %s %.0f %s fqdn=%s %s %s %s\r\n", key,
+//      CDTIME_T_TO_DOUBLE(time), value, host, value_tags, tags, host_tags);
+//    CDTIME_T_TO_DOUBLE(vl->time)
+
+    status = wt_format_tags(dp, vl, cb, ds_name);
     if (status != 0) {
       ERROR("write_tsdb2 plugin: error with format_tags");
       return status;
     }
 
-    /* Send the message to tsdb */
-    status = wt_send_message(key, values, tags, vl->time, cb, vl);
-    if (status != 0) {
-      if (cb->connect_failed_log_enabled) {
-        /* Do not log if socket is not enabled : it was logged already
-         * in wt_callback_init(). */
-        ERROR("write_tsdb2 plugin (%s:%s): error with "
-              "wt_send_message",
-              node, service);
+    /* Send the message to tsdb if buffer is full
+     */
+
+    pthread_mutex_lock(&cb->send_lock);
+    if(cb->buffer_metric_size == cb->buffer_metric_max ){
+      status = wt_write_nolock(cb);
+      if (status != 0) {
+        if (cb->connect_failed_log_enabled) {
+          /* Do not log if socket is not enabled : it was logged already
+           * in wt_callback_init(). */
+          ERROR("write_tsdb2 plugin (%s): error with "
+                "wt_flush_message",
+                node);
+        }
+        return status;
       }
-      return status;
     }
+    /* Add the new metric to the buffer
+     */
+
+    //printf("%s\n", json_object_to_json_string(dp));
+    json_object_array_add(cb->json_buffer, dp);
+    cb->buffer_metric_size++;
+    //status = wt_add_buffer_message(dp, vl->time, cb, vl);
+    //
+    pthread_mutex_unlock(&cb->send_lock);
+    return status;
   }
 
   return 0;
 }
 
+/* Write callback
+ */
 static int wt_write(const data_set_t *ds, const value_list_t *vl,
                     user_data_t *user_data) {
   struct wt_callback *cb;
@@ -853,6 +691,10 @@ static int wt_write(const data_set_t *ds, const value_list_t *vl,
   return status;
 }
 
+/* Initialization of the plugin
+ * create the wt_callback
+ * initialize the curl object
+ */
 static int wt_config_tsd(oconfig_item_t *ci) {
   struct wt_callback *cb;
   char callback_name[DATA_MAX_NAME_LEN];
@@ -862,12 +704,14 @@ static int wt_config_tsd(oconfig_item_t *ci) {
     ERROR("write_tsdb2 plugin: calloc failed.");
     return -1;
   }
-  cb->sock_fd = -1;
   cb->node = NULL;
-  cb->service = NULL;
   cb->host_tags = NULL;
   cb->store_rates = 0;
+  cb->buffer_metric_max = 30;
+  cb->buffer_metric_size = 0;
   cb->connect_failed_log_enabled = 1;
+  cb->auto_fqdn_failback = 0;
+  cb->json_host_tag = 0;
 
   pthread_mutex_init(&cb->send_lock, NULL);
   int status;
@@ -875,14 +719,25 @@ static int wt_config_tsd(oconfig_item_t *ci) {
   for (int i = 0; i < ci->children_num; i++) {
     oconfig_item_t *child = ci->children + i;
 
-    if (strcasecmp("Url", child->key) == 0)
-      cf_util_get_string(child, &cb->node);
-    else if (strcasecmp("HostTags", child->key) == 0)
-      cf_util_get_string(child, &cb->host_tags);
+    if (strcasecmp("Url", child->key) == 0){
+      char *base_url = NULL;
+      cf_util_get_string(child, &base_url);
+      cb->node = calloc(10 + strlen(base_url), 1);
+      snprintf(cb->node, 10 + strlen(base_url), "%s/api/put", base_url);
+      free(base_url);
+    }
+    else if (strcasecmp("Timeout", child->key) == 0)
+      status = cf_util_get_int(child, &cb->timeout);
+    else if (strcasecmp("BufferSize", child->key) == 0)
+      status = cf_util_get_int(child, &cb->buffer_metric_max);
+    else if (strcasecmp("JsonHostTag", child->key) == 0)
+      status = cf_util_get_boolean(child, &cb->json_host_tag);
+    else if (strcasecmp("AutoFqdnFailback", child->key) == 0)
+      status = cf_util_get_boolean(child, &cb->auto_fqdn_failback);
     else if (strcasecmp("StoreRates", child->key) == 0)
-      cf_util_get_boolean(child, &cb->store_rates);
+      status = cf_util_get_boolean(child, &cb->store_rates);
     else if (strcasecmp("AlwaysAppendDS", child->key) == 0)
-      cf_util_get_boolean(child, &cb->always_append_ds);
+      status = cf_util_get_boolean(child, &cb->always_append_ds);
     else if (strcasecmp("VerifyPeer", child->key) == 0)
       status = cf_util_get_boolean(child, &cb->verify_peer);
     else if (strcasecmp("VerifyHost", child->key) == 0)
@@ -941,20 +796,109 @@ static int wt_config_tsd(oconfig_item_t *ci) {
     }
   }
 
-  ssnprintf(callback_name, sizeof(callback_name), "write_tsdb2/%s/%s",
-            cb->node != NULL ? cb->node : WT_DEFAULT_NODE,
-            cb->service != NULL ? cb->service : WT_DEFAULT_SERVICE);
+  wt_config_curl(cb);
+
+  cb->json_buffer = json_object_new_array();
+  cb->buffer_metric_size = 0;
+
+  ssnprintf(callback_name, sizeof(callback_name), "write_tsdb2/%s",
+            cb->node != NULL ? cb->node : WT_DEFAULT_NODE);
 
   user_data_t user_data = {.data = cb, .free_func = wt_callback_free};
 
   plugin_register_write(callback_name, wt_write, &user_data);
 
   user_data.free_func = NULL;
-  plugin_register_flush(callback_name, wt_flush, &user_data);
+  //plugin_register_flush(callback_name, wt_flush, &user_data);
 
   return 0;
 }
 
+/* Intialization of the curl structure
+ */
+int wt_config_curl(struct wt_callback *cb){
+
+  if (cb->curl != NULL)
+    return 0;
+
+  cb->curl = curl_easy_init();
+  if (cb->curl == NULL) {
+    ERROR("curl plugin: curl_easy_init failed.");
+    return -1;
+  }
+
+  if (cb->timeout > 0)
+    curl_easy_setopt(cb->curl, CURLOPT_TIMEOUT_MS, (long)cb->timeout);
+
+  curl_easy_setopt(cb->curl, CURLOPT_NOSIGNAL, 1L);
+  curl_easy_setopt(cb->curl, CURLOPT_USERAGENT, COLLECTD_USERAGENT);
+
+  cb->headers = curl_slist_append(cb->headers, "Accept:  */*");
+  curl_slist_append(cb->headers, "Content-Type: application/json");
+  cb->headers = curl_slist_append(cb->headers, "Expect:");
+  curl_easy_setopt(cb->curl, CURLOPT_HTTPHEADER, cb->headers);
+
+  curl_easy_setopt(cb->curl, CURLOPT_ERRORBUFFER, cb->curl_errbuf);
+  curl_easy_setopt(cb->curl, CURLOPT_URL, cb->node);
+  curl_easy_setopt(cb->curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(cb->curl, CURLOPT_MAXREDIRS, 50L);
+
+  curl_easy_setopt(cb->curl, CURLOPT_SSL_VERIFYPEER, (long)cb->verify_peer);
+  curl_easy_setopt(cb->curl, CURLOPT_SSL_VERIFYHOST, cb->verify_host ? 2L : 0L);
+  curl_easy_setopt(cb->curl, CURLOPT_SSLVERSION, cb->sslversion);
+  if (cb->cacert != NULL)
+    curl_easy_setopt(cb->curl, CURLOPT_CAINFO, cb->cacert);
+  if (cb->capath != NULL)
+    curl_easy_setopt(cb->curl, CURLOPT_CAPATH, cb->capath);
+
+  if (cb->clientkey != NULL && cb->clientcert != NULL) {
+    curl_easy_setopt(cb->curl, CURLOPT_SSLKEY, cb->clientkey);
+    curl_easy_setopt(cb->curl, CURLOPT_SSLCERT, cb->clientcert);
+
+    if (cb->clientkeypass != NULL)
+      curl_easy_setopt(cb->curl, CURLOPT_SSLKEYPASSWD, cb->clientkeypass);
+  }
+}
+
+/* Plugin de-itialization
+ */
+static void wt_callback_free(void *data) {
+  struct wt_callback *cb;
+
+  if (data == NULL)
+    return;
+
+  cb = data;
+
+  pthread_mutex_lock(&cb->send_lock);
+
+  wt_write_nolock(cb);
+
+  sfree(cb->node);
+  sfree(cb->host_tags);
+
+  if (cb->curl != NULL) {
+    curl_easy_cleanup(cb->curl);
+    cb->curl = NULL;
+  }
+
+  if (cb->headers != NULL) {
+    curl_slist_free_all(cb->headers);
+    cb->headers = NULL;
+  }
+  sfree(cb->cacert);
+  sfree(cb->capath);
+  sfree(cb->clientkey);
+  sfree(cb->clientcert);
+  sfree(cb->clientkeypass);
+
+  pthread_mutex_destroy(&cb->send_lock);
+
+  sfree(cb);
+}
+
+/* plugin initialization callback
+ */
 static int wt_config(oconfig_item_t *ci) {
   for (int i = 0; i < ci->children_num; i++) {
     oconfig_item_t *child = ci->children + i;
@@ -967,10 +911,11 @@ static int wt_config(oconfig_item_t *ci) {
             child->key);
     }
   }
-
   return 0;
 }
 
+/* Registering of the module
+ */
 void module_register(void) {
   plugin_register_complex_config("write_tsdb2", wt_config);
 }
