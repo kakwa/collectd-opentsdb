@@ -270,14 +270,15 @@ static int wt_flush(cdtime_t timeout,
 }
 
 int wh_log_http_error(struct wt_callback *cb, int status) {
-  int ret = 1;
+  int ret = 0;
   long http_code = 0;
 
   curl_easy_getinfo(cb->curl, CURLINFO_RESPONSE_CODE, &http_code);
 
   if ((http_code != 204 && http_code != 0) || status != CURLE_OK){
     time_t ct = time(NULL);
-    ret = 0;
+    ret = 1;
+    cb->connect_failed_log_count++;
     if(ct - cb->last_error_log > 30){
         if(http_code != 204 && http_code != 0)
           ERROR("write_opentsdb plugin: HTTP Error code: %lu", http_code);
@@ -286,11 +287,11 @@ int wh_log_http_error(struct wt_callback *cb, int status) {
                 "status %i: %s",
                 status, cb->curl_errbuf);
         }
-        ERROR("OpenTSDB http POST error since last log: %d", cb->connect_failed_log_count++);
+        ERROR("write_opentsdb plugin: %d OpenTSDB http POST errors since last log",
+              cb->connect_failed_log_count);
         cb->connect_failed_log_count = 0;
         cb->last_error_log = ct;
     }
-    cb->connect_failed_log_count++;
   }
   return ret;
 }
@@ -308,10 +309,11 @@ static int wt_write_nolock(struct wt_callback *cb){
   curl_easy_setopt(cb->curl, CURLOPT_POSTFIELDS, data);
   status = curl_easy_perform(cb->curl);
 
-  wh_log_http_error(cb, status);
+  status = wh_log_http_error(cb, status);
 
   wt_reset_buffer(cb);
   return 0;
+  //return status;
 }
 
 static int wt_format_values(char *ret, size_t ret_len, int ds_num,
@@ -720,7 +722,7 @@ static int wt_config_tsd(oconfig_item_t *ci) {
   cb->json_host_tag = 0;
 
   pthread_mutex_init(&cb->send_lock, NULL);
-  int status;
+  int status = 0;
 
   for (int i = 0; i < ci->children_num; i++) {
     oconfig_item_t *child = ci->children + i;
@@ -760,11 +762,9 @@ static int wt_config_tsd(oconfig_item_t *ci) {
       status = cf_util_get_string(child, &cb->clientkeypass);
     else if (strcasecmp("SSLVersion", child->key) == 0) {
       char *value = NULL;
-
       status = cf_util_get_string(child, &value);
       if (status != 0)
         break;
-
       if (value == NULL || strcasecmp("default", value) == 0)
         cb->sslversion = CURL_SSLVERSION_DEFAULT;
       else if (strcasecmp("SSLv2", value) == 0)
@@ -799,10 +799,11 @@ static int wt_config_tsd(oconfig_item_t *ci) {
       ERROR("write_opentsdb plugin: Invalid configuration "
             "option: %s.",
             child->key);
+      status = EINVAL;
     }
   }
 
-  wt_config_curl(cb);
+  status = wt_config_curl(cb);
 
   cb->json_buffer = json_object_new_array();
   cb->buffer_metric_size = 0;
@@ -817,7 +818,7 @@ static int wt_config_tsd(oconfig_item_t *ci) {
   user_data.free_func = NULL;
   plugin_register_flush(callback_name, wt_flush, &user_data);
 
-  return 0;
+  return status;
 }
 
 /* Intialization of the curl structure
@@ -906,18 +907,20 @@ static void wt_callback_free(void *data) {
 /* plugin initialization callback
  */
 static int wt_config(oconfig_item_t *ci) {
+  int status = 0;
   for (int i = 0; i < ci->children_num; i++) {
     oconfig_item_t *child = ci->children + i;
 
     if (strcasecmp("Node", child->key) == 0)
-      wt_config_tsd(child);
+      status = wt_config_tsd(child);
     else {
       ERROR("write_opentsdb plugin: Invalid configuration "
             "option: %s.",
             child->key);
+      status = EINVAL;
     }
   }
-  return 0;
+  return status;
 }
 
 /* Registering of the module
