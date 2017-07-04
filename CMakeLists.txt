@@ -51,6 +51,7 @@ include_directories(
     inc/
     ${CMAKE_INCLUDE_PATH}
     ${COLLECTD_INCLUDE_DIR}
+    ${COLLECTD_INCLUDE_DIR_BASE}
     ${CURL_INCLUDE_DIRS}
     ${JSON-C_INCLUDE_DIRS}
 )
