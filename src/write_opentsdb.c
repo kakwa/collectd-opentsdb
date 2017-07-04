@@ -159,14 +159,15 @@
 #define HAVE__BOOL 1
 #define FP_LAYOUT_NEED_NOTHING 1
 
-#ifndef GAUGE_FORMAT
-#define GAUGE_FORMAT "%.15g"
-#endif
-
+// Collectd headers
 #include <collectd.h>
 #include <common.h>
 #include <plugin.h>
 #include <utils_cache.h>
+
+#ifndef GAUGE_FORMAT
+#define GAUGE_FORMAT "%.15g"
+#endif
 
 #ifndef WT_DEFAULT_NODE
 #define WT_DEFAULT_NODE "http://localhost:4242"
