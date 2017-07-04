@@ -6,6 +6,7 @@ state daemon that ingests metrics and stores them in HBase. The plugin uses
 I<HTTP(S)> and I<JSON> unlike the default C<write_tsdb> plugin. The data will
 be sent in blocks of 30 metrics (configurable).
 
+=over 4
 
 =head3 Synopsis
 
@@ -112,6 +113,8 @@ Request timeout in seconds.
 I<OpenTSDB> relies heavily on tags, which do not marry well with I<Collectd>.
 For that, C<write_opentsdb> can use collectd filter rules to rework the metrics with a
 I<Collecd> I<PreCache> chain.
+
+=over 4
 
 Synopsys:
 
