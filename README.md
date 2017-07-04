@@ -127,6 +127,14 @@ LoadPlugin target_set
 
 ## Changelogs
 
+
+### 0.0.2
+
+* capping error logs to two every 30 seconds if http POST of metrics fails (avoid spamming syslog with error logs)
+* fix error handling in metric treatement
+* add man page installation
+* clean man page
+
 ### 0.0.1
 
 * first version
