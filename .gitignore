@@ -62,5 +62,5 @@ install_manifest.txt
 *.swp
 *.swo
 
-collectd-opentsdb.1
-collectd-opentsdb.1.gz
+collectd-opentsdb.5
+collectd-opentsdb.5.gz
