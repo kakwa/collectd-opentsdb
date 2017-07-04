@@ -6,9 +6,11 @@ state daemon that ingests metrics and stores them in HBase. The plugin uses
 I<HTTP(S)> and I<JSON> unlike the default C<write_tsdb> plugin. The data will
 be sent in blocks of 30 metrics (configurable).
 
-=over 4
 
 =head3 Synopsis
+
+
+=over 4
 
   <Plugin write_opentsdb>
           <Node>
@@ -179,6 +181,8 @@ Synopsys:
    </Rule>
  </Chain>
 
+=back
+
 =item B<tsdb_prefix> I<String>
 
 Will prefix the OpenTSDB <metric> with given string (also prefix tsdb_id if defined)
@@ -205,4 +209,3 @@ Should contain "tagv". Il will add a tag. The key tagk comes from the tsdb_tag_a
 tag. Example : tsdb_tag_add_status adds a tag named 'status'.
 It will be sent as is to the TSDB server.
 
-=back
