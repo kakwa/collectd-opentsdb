@@ -613,6 +613,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
 
   for (size_t i = 0; i < ds->ds_num; i++) {
     const char *ds_name = NULL;
+    int ret = 0;
 
     json_object *dp = json_object_new_object();
 
@@ -621,44 +622,49 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
     }
 
     /* Copy the identifier to 'key' and escape it. */
-    status = wt_format_name(key, sizeof(key), vl, cb, ds_name);
-    if (status != 0) {
+    ret = wt_format_name(key, sizeof(key), vl, cb, ds_name);
+    if (ret != 0) {
       ERROR("write_opentsdb plugin: error with format_name");
-      return status;
+      status += ret;
+      continue;
     }
-
     escape_string(key, sizeof(key));
+
     /* Convert the values to an ASCII representation and put that into
      * 'values'. */
-    status =
-        wt_format_values(values, sizeof(values), i, ds, vl, cb->store_rates);
-    if (status != 0) {
+    ret = wt_format_values(values, sizeof(values), i, ds, vl, cb->store_rates);
+    if (ret != 0) {
       ERROR("write_opentsdb plugin: error with "
             "wt_format_values");
-      return status;
+      status += ret;
+      continue;
     }
 
     // Add the timestamp
     json_object *js_timestamp = json_object_new_double(CDTIME_T_TO_DOUBLE(vl->time));
     json_object_object_add(dp, "timestamp", js_timestamp);
-    // Add the key
+    // Add the metric
     json_object  *js_key = json_object_new_string(key);
     json_object_object_add(dp, "metric", js_key);
     // Add the value
     json_object *js_values = json_object_new_string(values);
     json_object_object_add(dp, "value", js_values);
 
+    // Add the tags
     status = wt_format_tags(dp, vl, cb, ds_name);
     if (status != 0) {
       ERROR("write_opentsdb plugin: error with format_tags");
-      return status;
+      status += ret;
+      json_object_put(dp);
+      continue;
     }
 
     /* Send the message to tsdb if buffer is full
      */
     pthread_mutex_lock(&cb->send_lock);
     if(cb->buffer_metric_size == cb->buffer_metric_max ){
-      status = wt_write_nolock(cb);
+      ret = wt_write_nolock(cb);
+      status += ret;
     }
 
     /* Add the new metric to the buffer
