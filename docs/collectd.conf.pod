@@ -19,6 +19,8 @@ be sent in blocks of 30 metrics (configurable).
           </Node>
   </Plugin>
 
+=back
+
 =head3 Options
 
 The C<write_opentsdb> plugin accepts the following configuration options:
@@ -103,6 +105,7 @@ L<curl_easy_setopt(3)> for more details.
 
 Request timeout in seconds.
 
+=back
 
 =head3 write_opentsdb meta_data (OpenTSDB tags)
 
@@ -199,3 +202,4 @@ Should contain "tagv". Il will add a tag. The key tagk comes from the tsdb_tag_a
 tag. Example : tsdb_tag_add_status adds a tag named 'status'.
 It will be sent as is to the TSDB server.
 
+=back
