@@ -28,7 +28,7 @@ if(DEBUG)
     set(CMAKE_BUILD_TYPE Debug)
 endif(DEBUG)
 
-add_custom_target(tag 
+add_custom_target(tag
     git tag -a "${VERSION}" -m "version ${VERSION}" &&
     git push origin ${VERSION}
 )

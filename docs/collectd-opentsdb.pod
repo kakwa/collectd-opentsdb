@@ -1,15 +1,8 @@
-=head1 Plugin C<write_opentsdb>
+=head1 NAME
 
+C<write_opentsdb> - Collectd OpenTSDB plugin
 
-The C<write_opentsdb> plugin writes data to I<OpenTSDB>, a scalable open-source
-time series database. The plugin connects to a I<TSD>, a masterless, no shared
-state daemon that ingests metrics and stores them in HBase. The plugin uses
-I<HTTP(S)> and I<JSON> unlike the default C<write_tsdb> plugin. The data will
-be sent in blocks of 30 metrics (configurable).
-
-
-=head2 Synopsis
-
+=head1 SYNOPSIS
 
 =over 4
 
@@ -25,9 +18,23 @@ be sent in blocks of 30 metrics (configurable).
 
 =back
 
-=head2 Options
 
-The C<write_opentsdb> plugin accepts the following configuration options:
+=head1 DESCRIPTION
+
+The C<write_opentsdb> plugin writes data to I<OpenTSDB>, a scalable open-source
+time series database. The plugin connects to a I<TSD>, a masterless, no shared
+state daemon that ingests metrics and stores them in HBase.
+
+The C<write_opentsdb> plugin uses I<HTTP(S)>, I<JSON> and the I</api/put API> unlike the
+default C<write_tsdb> plugin which uses the legacy I<telnet>.
+
+Compared to the C<write_tsdb> plugin, the C<write_opentsdb> plugin is also more versatile regarding
+tag setting (PreChain rules for metric name rework (ex: cpu.0.idle -> sys.cpu.idle with tag cpu_id=0) and
+static tagging through a json object passed in Hostname).
+
+=head1 CONFIGURATION
+
+=head2 C<write_opentsdb> configuration options:
 
 =over 4
 
@@ -40,9 +47,11 @@ URL of the I<OpenTSDB> master. Mandatory
 Number of metrics to buffers before POSTing to I<OpenTSDB>. I<OpenTSDB> limits
 this number at 50, so it should be lower than that.
 
+Default: 30
+
 =item B<JsonHostTag> B<true>|B<false>
 
-Try to parse the hostname as the set of static tags for datapoints.
+Try to parse the hostname as the set of static tags for data-points.
 
 The I<Hostname> (Global Option) should be set as followed for this to work:
 
@@ -50,8 +59,8 @@ The I<Hostname> (Global Option) should be set as followed for this to work:
 
 =item B<AutoFqdnFailback> B<true>|B<false>
 
-If B<JsonHostTag> and this option is set B<true>, if the I<Hostname> failed to be parsed as
-json, this plugin fallbacks to setting fqdn to I<Hostname>.
+If B<JsonHostTag> and B<AutoFqdnFallback> is set B<true> and if I<Hostname> failed to be parsed as
+json, this plugin sets the B<fqdn> tag to I<Hostname> as a fallback.
 
 =item B<VerifyPeer> B<true>|B<false>
 
@@ -111,15 +120,16 @@ Request timeout in seconds.
 
 =back
 
-=head2 write_opentsdb meta_data (OpenTSDB tags)
+=head2 write_opentsdb meta_data (OpenTSDB tagging)
 
 I<OpenTSDB> relies heavily on tags, which do not marry well with I<Collectd>.
 For that, C<write_opentsdb> can use collectd filter rules to rework the metrics with a
 I<Collecd> I<PreCache> chain.
 
-=over 4
 
-Synopsys:
+=head3 Synopsys:
+
+=over 4
 
  LoadPlugin match_regex
  LoadPlugin target_set
@@ -184,7 +194,7 @@ Synopsys:
 
 =back
 
-Filtering options/prefix:
+=head3 Filtering options/prefixes:
 
 =over 4
 
@@ -224,7 +234,7 @@ L<regex(7)>,
 
 =head1 AUTHORS
 
-=head2 Based on work from
+=head2 Based on work from:
 
 Florian Forster E<lt>octo@collectd.orgE<gt>,
 Doug MacEachern E<lt>dougm at hyperic.comE<gt>,
@@ -233,9 +243,9 @@ Scott Sanders E<lt>scott at jssjr.comE<gt>,
 Pierre-Yves Ritschard E<lt>pyr at spootnik.orgE<gt>,
 Brett Hawn E<lt>bhawn at llnw.comE<gt>,
 Kevin Bowling E<lt>kbowling@llnw.comE<gt>,
-Yves Mettier E<lt>ymettier@free.frE<gt>,
+Yves Mettier E<lt>ymettier@free.frE<gt>
 
-=head2 Authors
+=head2 Authors:
 
 Pierre-Francois Carpentier E<lt>carpentier.pf@gmail.comE<gt>
 

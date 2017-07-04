@@ -10,7 +10,7 @@ It adds a few improvement over the stock write_tsdb plugin:
 
 * inclusion of [write_tsdb plugin: Export metadata](https://github.com/collectd/collectd/pull/1655/files) PR for tag setup.
 * implementation of the [http "/api/put" API](http://opentsdb.net/docs/build/html/api_http/put.html) of OpenTSDB instead of the "telnet protocol".
-* support of ssl/tls with optional client side certicate for authentication.
+* support of ssl/tls with optional client side certificates for authentication.
 * support for settings tags through json data in Hostname.
 
 ## Documentation
@@ -50,14 +50,14 @@ Hostname "{\"fqdn\": \"http.node1.example.org\", \"env\": \"prod\", \"role\": \"
 # Plugin configuration
 LoadPlugin write_opentsdb
 
-<Plugin write_opentsdb> 
-        <Node> 
-                URL "http://localhost:5000" 
-                JsonHostTag true 
-                AutoFqdnFailback false 
-                StoreRates false 
-                AlwaysAppendDS false 
-        </Node> 
+<Plugin write_opentsdb>
+        <Node>
+                URL "http://localhost:5000"
+                JsonHostTag true
+                AutoFqdnFallback false
+                StoreRates false
+                AlwaysAppendDS false
+        </Node>
 </Plugin>
 
 
@@ -127,11 +127,15 @@ LoadPlugin target_set
 
 ## Changelogs
 
+### 0.0.3
+
+* fix typo in AutoFqdnFallback option name (previously: AutoFqdnFailback)
+* better man page
 
 ### 0.0.2
 
 * capping error logs to two every 30 seconds if http POST of metrics fails (avoid spamming syslog with error logs)
-* fix error handling in metric treatement
+* fix error handling in metric treatment
 * add man page installation
 * clean man page
 

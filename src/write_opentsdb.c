@@ -392,7 +392,7 @@ static int wt_format_tags(json_object *dp, const value_list_t *vl,
       tags_array = json_object_new_object();
       wt_add_tag(tags_array, "fqdn", host);
     } else if((tags_array == NULL)) {
-      ERROR("Failed to parse json host '%s'", host); 
+      ERROR("Failed to parse json host '%s'", host);
       return 1;
     }
   } else {
@@ -740,7 +740,7 @@ static int wt_config_tsd(oconfig_item_t *ci) {
       status = cf_util_get_int(child, &cb->buffer_metric_max);
     else if (strcasecmp("JsonHostTag", child->key) == 0)
       status = cf_util_get_boolean(child, &cb->json_host_tag);
-    else if (strcasecmp("AutoFqdnFailback", child->key) == 0)
+    else if (strcasecmp("AutoFqdnFallback", child->key) == 0)
       status = cf_util_get_boolean(child, &cb->auto_fqdn_failback);
     else if (strcasecmp("StoreRates", child->key) == 0)
       status = cf_util_get_boolean(child, &cb->store_rates);
