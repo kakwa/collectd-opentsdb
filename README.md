@@ -9,7 +9,7 @@ It adds a few improvement over the stock write_tsdb plugin:
 * inclusion of [write_tsdb plugin: Export metadata](https://github.com/collectd/collectd/pull/1655/files) PR for tag setup.
 * implementation of the [http "/api/put" API](http://opentsdb.net/docs/build/html/api_http/put.html) of OpenTSDB instead of the "telnet protocol".
 * support of ssl/tls with optional client side certicate for authentication.
-* support for settings tags at through json data in Hostname.
+* support for settings tags through json data in Hostname.
 
 ## Documentation
 
