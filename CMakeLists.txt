@@ -49,6 +49,7 @@ MESSAGE(STATUS "OS Detected: ${CMAKE_SYSTEM_NAME}")
 
 include_directories(
     inc/
+    ${CMAKE_INCLUDE_PATH}
     ${COLLECTD_INCLUDE_DIR}
     ${CURL_INCLUDE_DIRS}
     ${JSON-C_INCLUDE_DIRS}

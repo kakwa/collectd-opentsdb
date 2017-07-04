@@ -152,19 +152,17 @@
 #include <inttypes.h>
 #include <curl/curl.h>
 #include <json-c/json.h>
+#include <netdb.h>
+#include <pwd.h>
 
 #define COLLECTD_USERAGENT "collectd"
 #define HAVE__BOOL 1
 #define FP_LAYOUT_NEED_NOTHING 1
 
-#include <collectd/core/daemon/collectd.h>
-
-#include <collectd/core/daemon/common.h>
-#include <collectd/core/daemon/plugin.h>
-
-#include <collectd/core/daemon/utils_cache.h>
-
-#include <netdb.h>
+#include <collectd.h>
+#include <common.h>
+#include <plugin.h>
+#include <utils_cache.h>
 
 #ifndef WT_DEFAULT_NODE
 #define WT_DEFAULT_NODE "http://localhost:4242"
