@@ -232,7 +232,8 @@ struct wt_callback {
   // mutex used for emptying/happending in the buffer
   pthread_mutex_t send_lock;
 
-  _Bool connect_failed_log_enabled;
+  int connect_failed_log_count;
+  time_t last_error_log;
 };
 
 static void wt_callback_free(void *data);
@@ -262,22 +263,34 @@ static int wt_flush(cdtime_t timeout,
   cb = user_data->data;
 
   pthread_mutex_lock(&cb->send_lock);
-  wt_write_nolock(cb);
+  status = wt_write_nolock(cb);
   pthread_mutex_unlock(&cb->send_lock);
 
   return status;
 }
 
-int wh_log_http_error(struct wt_callback *cb) {
+int wh_log_http_error(struct wt_callback *cb, int status) {
   int ret = 1;
   long http_code = 0;
 
   curl_easy_getinfo(cb->curl, CURLINFO_RESPONSE_CODE, &http_code);
 
-  if (http_code != 204 && http_code != 0){
+  if ((http_code != 204 && http_code != 0) || status != CURLE_OK){
+    time_t ct = time(NULL);
     ret = 0;
-    if(cb->connect_failed_log_enabled)
-      ERROR("write_opentsdb plugin: HTTP Error code: %lu", http_code);
+    if(ct - cb->last_error_log > 30){
+        if(http_code != 204 && http_code != 0)
+          ERROR("write_opentsdb plugin: HTTP Error code: %lu", http_code);
+        if(status != CURLE_OK){
+          ERROR("write_opentsdb plugin: curl_easy_perform failed with "
+                "status %i: %s",
+                status, cb->curl_errbuf);
+        }
+        ERROR("OpenTSDB http POST error since last log: %d", cb->connect_failed_log_count++);
+        cb->connect_failed_log_count = 0;
+        cb->last_error_log = ct;
+    }
+    cb->connect_failed_log_count++;
   }
   return ret;
 }
@@ -295,13 +308,7 @@ static int wt_write_nolock(struct wt_callback *cb){
   curl_easy_setopt(cb->curl, CURLOPT_POSTFIELDS, data);
   status = curl_easy_perform(cb->curl);
 
-  int ret =  wh_log_http_error(cb);
-
-  if (cb->connect_failed_log_enabled && ret && status != CURLE_OK) {
-    ERROR("write_opentsdb plugin: curl_easy_perform failed with "
-          "status %i: %s",
-          status, cb->curl_errbuf);
-  }
+  wh_log_http_error(cb, status);
 
   wt_reset_buffer(cb);
   return 0;
@@ -649,24 +656,13 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
 
     /* Send the message to tsdb if buffer is full
      */
-
     pthread_mutex_lock(&cb->send_lock);
     if(cb->buffer_metric_size == cb->buffer_metric_max ){
       status = wt_write_nolock(cb);
-      if (status != 0) {
-        if (cb->connect_failed_log_enabled) {
-          /* Do not log if socket is not enabled : it was logged already
-           * in wt_callback_init(). */
-          ERROR("write_opentsdb plugin (%s): error with "
-                "wt_flush_message",
-                node);
-        }
-        return status;
-      }
     }
+
     /* Add the new metric to the buffer
      */
-
     //printf("%s\n", json_object_to_json_string(dp));
     json_object_array_add(cb->json_buffer, dp);
     cb->buffer_metric_size++;
@@ -712,7 +708,8 @@ static int wt_config_tsd(oconfig_item_t *ci) {
   cb->store_rates = 0;
   cb->buffer_metric_max = 30;
   cb->buffer_metric_size = 0;
-  cb->connect_failed_log_enabled = 1;
+  cb->connect_failed_log_count = 0;
+  cb->last_error_log = 0;
   cb->auto_fqdn_failback = 0;
   cb->json_host_tag = 0;
 
