@@ -33,6 +33,9 @@ add_custom_target(tag
     git push origin ${VERSION}
 )
 
+
+add_custom_target(man)
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DTSBD_WRITER2_VERSION='\"${VERSION}\"'")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
@@ -40,6 +43,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 find_package(CURL REQUIRED)
 find_package(collectd REQUIRED)
 find_package(JSON-C REQUIRED)
+
+INCLUDE(Pod2Man)
+
+POD2MAN(${CMAKE_CURRENT_SOURCE_DIR}/docs/collectd-opentsdb.pod collectd-opentsdb 1)
 
 MESSAGE(STATUS "Collectd include dir: ${COLLECTD_INCLUDE_DIR}")
 MESSAGE(STATUS "Curl include directory: ${CURL_INCLUDE_DIRS}")
