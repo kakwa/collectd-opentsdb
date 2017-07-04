@@ -61,3 +61,6 @@ install_manifest.txt
 # Vim stuff
 *.swp
 *.swo
+
+collectd-opentsdb.1
+collectd-opentsdb.1.gz

@@ -34,7 +34,7 @@ add_custom_target(tag
 )
 
 
-add_custom_target(man)
+add_custom_target(man ALL)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DTSBD_WRITER2_VERSION='\"${VERSION}\"'")
 
