@@ -1,5 +1,7 @@
 # collectd-opentsdb
 
+[![Build Status](https://travis-ci.org/kakwa/collectd-opentsbd.svg?branch=master)](https://travis-ci.org/kakwa/collectd-opentsbd)
+
 ## Description
 
 This plugin is a fork of the write_tsdb plugin.
