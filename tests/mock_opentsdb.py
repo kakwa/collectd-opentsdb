@@ -8,7 +8,7 @@ from pprint import pprint
 def hello():
     content = request.get_json(silent=True)
     pprint(content)
-    return "{OKaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}"
+    return '{"failed": 0, "success": %s}' % (len(content)), 204
 
 if __name__ == '__main__':
     app.run()
