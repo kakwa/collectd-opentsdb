@@ -271,7 +271,7 @@ int wh_log_http_error(struct wt_callback *cb) {
 
   curl_easy_getinfo(cb->curl, CURLINFO_RESPONSE_CODE, &http_code);
 
-  if (http_code != 200 && http_code != 0){
+  if (http_code != 204 && http_code != 0){
     ret = 0;
     if(cb->connect_failed_log_enabled)
       ERROR("write_opentsdb plugin: HTTP Error code: %lu", http_code);
@@ -402,34 +402,35 @@ static int wt_format_tags(json_object *dp, const value_list_t *vl,
     }                                                                          \
   } while (0)
 
+
   if (vl->meta) {
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_PLUGIN]);
-    if (temp) {
+    if (temp && strlen(temp) != 0) {
       wt_add_tag(tags_array, temp, vl->plugin);
       sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_PLUGININSTANCE]);
-    if (temp) {
+    if (temp && strlen(temp) != 0) {
       wt_add_tag(tags_array, temp, vl->plugin_instance);
       sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_TYPE]);
-    if (temp) {
+    if (temp && strlen(temp) != 0) {
       wt_add_tag(tags_array, temp, vl->type);
       sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_TYPEINSTANCE]);
-    if (temp) {
+    if (temp && strlen(temp) != 0) {
       wt_add_tag(tags_array, temp, vl->type_instance);
       sfree(temp);
     }
 
     if (ds_name) {
       TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_DSNAME]);
-      if (temp) {
+      if (temp && strlen(temp) != 0) {
         wt_add_tag(tags_array, temp, ds_name);
         sfree(temp);
       }
@@ -570,6 +571,7 @@ static int wt_format_name(char *ret, int ret_len, const value_list_t *vl,
       TSDB_STRING_APPEND_DOT;
       TSDB_STRING_APPEND_STRING(vl->type_instance);
     }
+
     if (include_in_id[TSDB_TAG_DSNAME]) {
       TSDB_STRING_APPEND_DOT;
       TSDB_STRING_APPEND_STRING(ds_name);
@@ -604,8 +606,9 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
 
     json_object *dp = json_object_new_object();
 
-    if (cb->always_append_ds || (ds->ds_num > 1))
+    if (cb->always_append_ds || (ds->ds_num > 1)){
       ds_name = ds->ds[i].name;
+    }
 
     /* Copy the identifier to 'key' and escape it. */
     status = wt_format_name(key, sizeof(key), vl, cb, ds_name);
@@ -630,7 +633,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
     json_object_object_add(dp, "timestamp", js_timestamp);
     // Add the key
     json_object  *js_key = json_object_new_string(key);
-    json_object_object_add(dp, "key", js_key);
+    json_object_object_add(dp, "metric", js_key);
     // Add the value
     json_object *js_values = json_object_new_string(values);
     json_object_object_add(dp, "value", js_values);
@@ -667,10 +670,9 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
     //status = wt_add_buffer_message(dp, vl->time, cb, vl);
     //
     pthread_mutex_unlock(&cb->send_lock);
-    return status;
   }
 
-  return 0;
+  return status;
 }
 
 /* Write callback
