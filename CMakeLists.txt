@@ -46,7 +46,7 @@ find_package(JSON-C REQUIRED)
 
 INCLUDE(Pod2Man)
 
-POD2MAN(${CMAKE_CURRENT_SOURCE_DIR}/docs/collectd-opentsdb.pod collectd-opentsdb 1)
+POD2MAN(${CMAKE_CURRENT_SOURCE_DIR}/docs/collectd-opentsdb.pod collectd-opentsdb 5)
 
 MESSAGE(STATUS "Collectd include dir: ${COLLECTD_INCLUDE_DIR}")
 MESSAGE(STATUS "Curl include directory: ${CURL_INCLUDE_DIRS}")
