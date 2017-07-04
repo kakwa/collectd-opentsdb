@@ -50,7 +50,7 @@ LoadPlugin write_opentsdb
 
 <Plugin write_opentsdb> 
         <Node> 
-                Url "http://localhost:5000" 
+                URL "http://localhost:5000" 
                 JsonHostTag true 
                 AutoFqdnFailback false 
                 StoreRates false 

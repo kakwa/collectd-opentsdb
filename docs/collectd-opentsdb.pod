@@ -31,7 +31,7 @@ The C<write_opentsdb> plugin accepts the following configuration options:
 
 =over 4
 
-=item B<Url> I<URL>
+=item B<URL> I<url>
 
 URL of the I<OpenTSDB> master. Mandatory
 
