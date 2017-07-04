@@ -21,15 +21,12 @@ IF(LINK_PTHREAD)
     set(PTHREAD_LIBRARIES 'pthread')
 ENDIF(LINK_PTHREAD)
 
-set (CMAKE_C_STANDARD 11)
-
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700")
 
 if(DEBUG)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -g")
     set(CMAKE_BUILD_TYPE Debug)
 endif(DEBUG)
-
 
 add_custom_target(tag 
     git tag -a "${VERSION}" -m "version ${VERSION}" &&
@@ -62,6 +59,7 @@ add_library(write_opentsdb
     src/write_opentsdb.c
 )
 
+ADD_DEFINITIONS(-std=c99)
 SET_TARGET_PROPERTIES(write_opentsdb PROPERTIES PREFIX "")
 
 target_link_libraries(write_opentsdb
