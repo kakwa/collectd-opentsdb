@@ -183,6 +183,10 @@ Synopsys:
 
 =back
 
+Filtering options/prefix:
+
+=over 4
+
 =item B<tsdb_prefix> I<String>
 
 Will prefix the OpenTSDB <metric> with given string (also prefix tsdb_id if defined)
@@ -209,3 +213,4 @@ Should contain "tagv". Il will add a tag. The key tagk comes from the tsdb_tag_a
 tag. Example : tsdb_tag_add_status adds a tag named 'status'.
 It will be sent as is to the TSDB server.
 
+=back
