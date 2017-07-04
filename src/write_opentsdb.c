@@ -603,8 +603,6 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
 
   int status;
 
-  const char *node = cb->node ? cb->node : WT_DEFAULT_NODE;
-
   if (0 != strcmp(ds->type, vl->type)) {
     ERROR("write_opentsdb plugin: DS type does not match "
           "value list type");
@@ -659,9 +657,12 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
       continue;
     }
 
+    // We need some locks to avoid disaster
+    pthread_mutex_lock(&cb->send_lock);
+
     /* Send the message to tsdb if buffer is full
      */
-    pthread_mutex_lock(&cb->send_lock);
+
     if(cb->buffer_metric_size == cb->buffer_metric_max ){
       ret = wt_write_nolock(cb);
       status += ret;
@@ -669,11 +670,10 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
 
     /* Add the new metric to the buffer
      */
-    //printf("%s\n", json_object_to_json_string(dp));
     json_object_array_add(cb->json_buffer, dp);
     cb->buffer_metric_size++;
-    //status = wt_add_buffer_message(dp, vl->time, cb, vl);
-    //
+
+    // Release lock
     pthread_mutex_unlock(&cb->send_lock);
   }
 
