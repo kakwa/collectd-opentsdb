@@ -13,15 +13,15 @@ It adds a few improvement over the stock write_tsdb plugin:
 
 ## Documentation
 
-The plugin documentation is available here:
+The full plugin documentation is available here:
 
-* [docs/collectd.conf.pod](https://github.com/kakwa/collectd-tsdb2/blob/master/docs/collectd.conf.pod)
+* [docs/collectd-opentsdb.pod](https://github.com/kakwa/collectd-tsdb2/blob/master/docs/collectd-opentsdb.pod)
 
 ## Dependencies
 
-* collectd
-* libcurl
-* libjson-c
+* [collectd](https://collectd.org/)
+* [libcurl](https://curl.haxx.se/)
+* [libjson-c](https://github.com/json-c/json-c)
 
 ## Building
 
