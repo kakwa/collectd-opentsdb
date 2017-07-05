@@ -19,6 +19,12 @@ The full plugin documentation is available here:
 
 * [docs/collectd-opentsdb.pod](https://github.com/kakwa/collectd-tsdb2/blob/master/docs/collectd-opentsdb.pod)
 
+Alternatively, once installed:
+
+```bash
+man collectd-opentsdb
+```
+
 ## Dependencies
 
 * [collectd](https://collectd.org/)
