@@ -78,9 +78,9 @@ LoadPlugin target_set
       Plugin "^cpu$"
     </Match>
     <Target "set">
-      MetaDataSet "tsdb_tag_pluginInstance" "cpu"
-      MetaDataSet "tsdb_tag_type" ""
-      MetaDataSet "tsdb_prefix" "sys."
+      MetaData "tsdb_tag_pluginInstance" "cpu"
+      MetaData "tsdb_tag_type" ""
+      MetaData "tsdb_prefix" "sys."
     </Target>
   </Rule>
   <Rule "opentsdb_df">
@@ -88,9 +88,9 @@ LoadPlugin target_set
       Plugin "^df$"
     </Match>
     <Target "set">
-      MetaDataSet "tsdb_tag_pluginInstance" "mount"
-      MetaDataSet "tsdb_tag_type" ""
-      MetaDataSet "tsdb_prefix" "sys."
+      MetaData "tsdb_tag_pluginInstance" "mount"
+      MetaData "tsdb_tag_type" ""
+      MetaData "tsdb_prefix" "sys."
     </Target>
   </Rule>
   <Rule "opentsdb_disk">
@@ -98,8 +98,8 @@ LoadPlugin target_set
       Plugin "^disk$"
     </Match>
     <Target "set">
-      MetaDataSet "tsdb_tag_pluginInstance" "disk"
-      MetaDataSet "tsdb_prefix" "sys."
+      MetaData "tsdb_tag_pluginInstance" "disk"
+      MetaData "tsdb_prefix" "sys."
     </Target>
   </Rule>
   <Rule "opentsdb_interface">
@@ -107,8 +107,8 @@ LoadPlugin target_set
       Plugin "^interface$"
     </Match>
     <Target "set">
-      MetaDataSet "tsdb_tag_pluginInstance" "iface"
-      MetaDataSet "tsdb_prefix" "sys."
+      MetaData "tsdb_tag_pluginInstance" "iface"
+      MetaData "tsdb_prefix" "sys."
     </Target>
   </Rule>
   <Rule "opentsdb_load">
@@ -116,8 +116,8 @@ LoadPlugin target_set
       Plugin "^loac$"
     </Match>
     <Target "set">
-      MetaDataSet "tsdb_tag_type" ""
-      MetaDataSet "tsdb_prefix" "sys."
+      MetaData "tsdb_tag_type" ""
+      MetaData "tsdb_prefix" "sys."
     </Target>
   </Rule>
   <Rule "opentsdb_swap">
@@ -125,7 +125,7 @@ LoadPlugin target_set
       Plugin "^swap$"
     </Match>
     <Target "set">
-      MetaDataSet "tsdb_prefix" "sys."
+      MetaData "tsdb_prefix" "sys."
     </Target>
   </Rule>
 </Chain>

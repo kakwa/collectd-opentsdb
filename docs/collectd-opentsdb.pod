@@ -140,9 +140,9 @@ I<Collecd> I<PreCache> chain.
        Plugin "^cpu$"
      </Match>
      <Target "set">
-       MetaDataSet "tsdb_tag_pluginInstance" "cpu"
-       MetaDataSet "tsdb_tag_type" ""
-       MetaDataSet "tsdb_prefix" "sys."
+       MetaData "tsdb_tag_pluginInstance" "cpu"
+       MetaData "tsdb_tag_type" ""
+       MetaData "tsdb_prefix" "sys."
      </Target>
    </Rule>
    <Rule "opentsdb_df">
@@ -150,9 +150,9 @@ I<Collecd> I<PreCache> chain.
        Plugin "^df$"
      </Match>
      <Target "set">
-       MetaDataSet "tsdb_tag_pluginInstance" "mount"
-       MetaDataSet "tsdb_tag_type" ""
-       MetaDataSet "tsdb_prefix" "sys."
+       MetaData "tsdb_tag_pluginInstance" "mount"
+       MetaData "tsdb_tag_type" ""
+       MetaData "tsdb_prefix" "sys."
      </Target>
    </Rule>
    <Rule "opentsdb_disk">
@@ -160,8 +160,8 @@ I<Collecd> I<PreCache> chain.
        Plugin "^disk$"
      </Match>
      <Target "set">
-       MetaDataSet "tsdb_tag_pluginInstance" "disk"
-       MetaDataSet "tsdb_prefix" "sys."
+       MetaData "tsdb_tag_pluginInstance" "disk"
+       MetaData "tsdb_prefix" "sys."
      </Target>
    </Rule>
    <Rule "opentsdb_interface">
@@ -169,8 +169,8 @@ I<Collecd> I<PreCache> chain.
        Plugin "^interface$"
      </Match>
      <Target "set">
-       MetaDataSet "tsdb_tag_pluginInstance" "iface"
-       MetaDataSet "tsdb_prefix" "sys."
+       MetaData "tsdb_tag_pluginInstance" "iface"
+       MetaData "tsdb_prefix" "sys."
      </Target>
    </Rule>
    <Rule "opentsdb_load">
@@ -178,8 +178,8 @@ I<Collecd> I<PreCache> chain.
        Plugin "^loac$"
      </Match>
      <Target "set">
-       MetaDataSet "tsdb_tag_type" ""
-       MetaDataSet "tsdb_prefix" "sys."
+       MetaData "tsdb_tag_type" ""
+       MetaData "tsdb_prefix" "sys."
      </Target>
    </Rule>
    <Rule "opentsdb_swap">
@@ -187,7 +187,7 @@ I<Collecd> I<PreCache> chain.
        Plugin "^swap$"
      </Match>
      <Target "set">
-       MetaDataSet "tsdb_prefix" "sys."
+       MetaData "tsdb_prefix" "sys."
      </Target>
    </Rule>
  </Chain>
