@@ -1,6 +1,6 @@
 # collectd-opentsdb
 
-[![Build Status](https://travis-ci.org/kakwa/collectd-opentsdb.svg?branch=master)](https://travis-ci.org/kakwa/collectd-opentsbd)
+[![Build Status](https://travis-ci.org/kakwa/collectd-opentsdb.svg?branch=master)](https://travis-ci.org/kakwa/collectd-opentsdb)
 
 ## Description
 
