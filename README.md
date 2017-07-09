@@ -133,6 +133,11 @@ LoadPlugin target_set
 
 ## Changelogs
 
+
+### 0.0.4
+
+* Documentation update
+
 ### 0.0.3
 
 * fix typo in AutoFqdnFallback option name (previously: AutoFqdnFailback)
