@@ -74,9 +74,9 @@
  *       Plugin "^cpu$"
  *     </Match>
  *     <Target "set">
- *       MetaDataSet "tsdb_tag_pluginInstance" "cpu"
- *       MetaDataSet "tsdb_tag_type" ""
- *       MetaDataSet "tsdb_prefix" "sys."
+ *       MetaData "tsdb_tag_pluginInstance" "cpu"
+ *       MetaData "tsdb_tag_type" ""
+ *       MetaData "tsdb_prefix" "sys."
  *     </Target>
  *   </Rule>
  *   <Rule "opentsdb_df">
@@ -84,9 +84,9 @@
  *       Plugin "^df$"
  *     </Match>
  *     <Target "set">
- *       MetaDataSet "tsdb_tag_pluginInstance" "mount"
- *       MetaDataSet "tsdb_tag_type" ""
- *       MetaDataSet "tsdb_prefix" "sys."
+ *       MetaData "tsdb_tag_pluginInstance" "mount"
+ *       MetaData "tsdb_tag_type" ""
+ *       MetaData "tsdb_prefix" "sys."
  *     </Target>
  *   </Rule>
  *   <Rule "opentsdb_disk">
@@ -94,8 +94,8 @@
  *       Plugin "^disk$"
  *     </Match>
  *     <Target "set">
- *       MetaDataSet "tsdb_tag_pluginInstance" "disk"
- *       MetaDataSet "tsdb_prefix" "sys."
+ *       MetaData "tsdb_tag_pluginInstance" "disk"
+ *       MetaData "tsdb_prefix" "sys."
  *     </Target>
  *   </Rule>
  *   <Rule "opentsdb_interface">
@@ -112,8 +112,8 @@
  *       Plugin "^loac$"
  *     </Match>
  *     <Target "set">
- *       MetaDataSet "tsdb_tag_type" ""
- *       MetaDataSet "tsdb_prefix" "sys."
+ *       MetaData "tsdb_tag_type" ""
+ *       MetaData "tsdb_prefix" "sys."
  *     </Target>
  *   </Rule>
  *   <Rule "opentsdb_swap">
@@ -121,7 +121,7 @@
  *       Plugin "^swap$"
  *     </Match>
  *     <Target "set">
- *       MetaDataSet "tsdb_prefix" "sys."
+ *       MetaData "tsdb_prefix" "sys."
  *     </Target>
  *   </Rule>
  * </Chain>
@@ -467,7 +467,6 @@ static int wt_format_tags(json_object *dp, const value_list_t *vl,
       if (temp && temp[0]) {
         int n;
         char *key = meta_toc[i] + sizeof(TSDB_META_TAG_ADD_PREFIX) - 1;
-
         wt_add_tag(tags_array, key, temp);
       }
       if (temp)

@@ -194,35 +194,83 @@ I<Collecd> I<PreCache> chain.
 
 =back
 
+=head3 OpenTSDB metric format:
+
+With no filters, the metric name will be:
+
+  <plugin>.<pluginInstance>.<type>.<typeInstance>
+
+Example:
+
+  disk.sdb.disk_ops.read
+
+This format can be altered with filtering options.
+
 =head3 Filtering options/prefixes:
 
 =over 4
 
 =item B<tsdb_prefix> I<String>
 
-Will prefix the OpenTSDB <metric> with given string (also prefix tsdb_id if defined)
+If B<tsdb_prefix> is set, the <metric> name is prefixed with given value.
 
 =item B<tsdb_id> I<String>
 
-Replace the metric name with this string.
+If B<tsdb_id> is set, the metric name is replaced with given value.
 
-=item B<tsdb_tag_plugin> and B<tsdb_tag_pluginInstance>
+If B<tsdb_prefix> is set, the metric name will also be prefixed with B<tsdb_prefix> value.
 
-When defined, tsdb_tag_* removes the related item from metric id.
+Other options have no effect if B<tsdb_id> is set.
 
-=item B<tsdb_tag_type> and B<tsdb_tag_typeInstance>
+=item B<tsdb_tag_plugin> I<String>
 
-If it is not empty, it will be the key of an opentsdb tag (the value is the item itself)
+If B<tsdb_tag_plugin> is set and I<String> is not empty, the I<plugin> part of the metric name
+is removed, and used as value of of tag I<String>
+
+if I<String> is empty, it just removes the I<plugin> part of the metric, no tag are set.
+
+=item B<tsdb_tag_pluginInstance> I<String>
+
+If B<tsdb_tag_pluginInstance> is set and I<String> is not empty, the I<plugin> 
+part of the metric name is removed, and used as value of of tag I<String>
+
+if I<String> is empty, it just removes the I<tsdb_tag_pluginInstance> part of the metric name,
+no tag are set.
+
+=item B<tsdb_tag_type> I<String>
+
+If B<tsdb_tag_type> is set and I<String> is not empty, the I<plugin> 
+part of the metric name is removed, and used as value of of tag I<String>
+
+if I<String> is empty, it just removes the I<tsdb_tag_type> part of the metric name,
+no tag are set.
+
+=item B<tsdb_tag_typeInstance> I<String>
+
+If B<tsdb_tag_typeInstance> is set and I<String> is not empty, the I<plugin> 
+part of the metric name is removed, and used as value of of tag I<String>
+
+if I<String> is empty, it just removes the I<tsdb_tag_typeInstance> part of the metric name,
+no tag are set.
 
 =item B<tsdb_tag_dsname>
 
-If it is empty, no tag is defined.
+If B<tsdb_tag_dsname> is set and I<String> is not empty, the I<plugin> 
+part of the metric name is removed, and used as value of of tag I<String>
 
-=item B<tsdb_tag_add_*>
+if I<String> is empty, it just removes the I<tsdb_tag_dsname> part of the metric name,
+no tag are set.
 
-Should contain "tagv". Il will add a tag. The key tagk comes from the tsdb_tag_add_*
-tag. Example : tsdb_tag_add_status adds a tag named 'status'.
-It will be sent as is to the TSDB server.
+=item B<tsdb_tag_add_*> I<String>
+
+B<tsdb_tag_add_*> adds a tag with the value I<String>. The key of tag comes from the last portion
+of tsdb_tag_add_<key> Metadata.
+
+Example : 
+
+  MetaData "tsdb_tag_add_status" "down"
+
+adds a tag named 'status' with value 'down'.
 
 =back
 
