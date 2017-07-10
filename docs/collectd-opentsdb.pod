@@ -26,14 +26,14 @@ time series database. The plugin connects to a I<TSD>, a masterless, no shared
 state daemon that ingests metrics and stores them in HBase.
 
 The C<write_opentsdb> plugin uses I<HTTP(S)>, I<JSON> and the I</api/put API> unlike the
-default C<write_tsdb> plugin which uses the legacy I<telnet>.
+default C<write_tsdb> plugin which uses the legacy I<telnet like API>.
 
 Compared to the C<write_tsdb> plugin, the C<write_opentsdb> plugin is also more versatile regarding
 tag setting (PreChain rules for metric name rework (ex: cpu.0.idle -> sys.cpu.idle with tag cpu_id=0) and
-static tagging through a json object passed in Hostname).
+static tagging through a json object passed as Hostname).
 
-Even if this plugin can partially work with older versions, using it with collectd >= 5.6 is strongly recommended
-be able to use all functionalities, specially, I<JsonHostTag> and tag filtering.
+Even if this plugin can partially work with older versions, using it with collectd >= 5.6 is strongly recommended.
+With older version some functionalities, specially I<JsonHostTag> and tag I<write_opentsdb filtering Chain>, will not work properly.
 
 =head1 CONFIGURATION
 
@@ -47,7 +47,7 @@ URL of the I<OpenTSDB> master. Mandatory
 
 =item B<BufferSize> I<Integer>
 
-Number of metrics to buffers before POSTing to I<OpenTSDB>. I<OpenTSDB> limits
+Number of metrics to buffer before POSTing to I<OpenTSDB>. I<OpenTSDB> limits
 this number at 50, so it should be lower than that.
 
 Default: 30
@@ -64,12 +64,12 @@ Keep in mind that the total length of Hostname is limited to 127 characters (63 
 
 Also, keep in mind that OpenTSDB doesn't recommend more than 4 or 5 tags, with  maximum of 8 tags by default.
 
-Consequently choose your tags carefully, specially when also using B<write_opentsdb> Chains.
+Consequently choose your tags carefully, specially when also using I<write_opentsdb filtering Chain>.
 
 =item B<AutoFqdnFailback> B<true>|B<false>
 
-If B<JsonHostTag> and B<AutoFqdnFallback> is set B<true> and if I<Hostname> failed to be parsed as
-json, this plugin sets the B<fqdn> tag to I<Hostname> as a fallback.
+If B<JsonHostTag> and B<AutoFqdnFallback> are set to B<true> and if I<Hostname> failed to be parsed as
+json, this plugin sets the B<fqdn> tag to I<Hostname> raw value as a fallback.
 
 =item B<VerifyPeer> B<true>|B<false>
 
@@ -243,7 +243,7 @@ if I<String> is empty, it just removes the I<plugin> part of the metric, no tag 
 
 =item B<tsdb_tag_pluginInstance> I<String>
 
-If B<tsdb_tag_pluginInstance> is set and I<String> is not empty, the I<plugin> 
+If B<tsdb_tag_pluginInstance> is set and I<String> is not empty, the I<pluginInstance> 
 part of the metric name is removed, and used as value of of tag I<String>
 
 if I<String> is empty, it just removes the I<tsdb_tag_pluginInstance> part of the metric name,
@@ -251,7 +251,7 @@ no tag are set.
 
 =item B<tsdb_tag_type> I<String>
 
-If B<tsdb_tag_type> is set and I<String> is not empty, the I<plugin> 
+If B<tsdb_tag_type> is set and I<String> is not empty, the I<type>
 part of the metric name is removed, and used as value of of tag I<String>
 
 if I<String> is empty, it just removes the I<tsdb_tag_type> part of the metric name,
@@ -259,7 +259,7 @@ no tag are set.
 
 =item B<tsdb_tag_typeInstance> I<String>
 
-If B<tsdb_tag_typeInstance> is set and I<String> is not empty, the I<plugin> 
+If B<tsdb_tag_typeInstance> is set and I<String> is not empty, the I<typeInstance>
 part of the metric name is removed, and used as value of of tag I<String>
 
 if I<String> is empty, it just removes the I<tsdb_tag_typeInstance> part of the metric name,
@@ -267,7 +267,7 @@ no tag are set.
 
 =item B<tsdb_tag_dsname>
 
-If B<tsdb_tag_dsname> is set and I<String> is not empty, the I<plugin> 
+If B<tsdb_tag_dsname> is set and I<String> is not empty, the I<dsname> 
 part of the metric name is removed, and used as value of of tag I<String>
 
 if I<String> is empty, it just removes the I<tsdb_tag_dsname> part of the metric name,
