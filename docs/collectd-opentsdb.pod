@@ -229,7 +229,7 @@ This format can be altered with filtering options.
 
 =item B<tsdb_prefix> I<String>
 
-If B<tsdb_prefix> is set, the <metric> name is prefixed with given value.
+If B<tsdb_prefix> is set, the metric name is prefixed with given value.
 
 =item B<tsdb_id> I<String>
 
@@ -237,45 +237,45 @@ If B<tsdb_id> is set, the metric name is replaced with given value.
 
 If B<tsdb_prefix> is set, the metric name will also be prefixed with B<tsdb_prefix> value.
 
-Other options have no effect if B<tsdb_id> is set.
+Other options have no effect on metric name if B<tsdb_id> is set, however they retains their effect on tags.
 
 =item B<tsdb_tag_plugin> I<String>
 
 If B<tsdb_tag_plugin> is set and I<String> is not empty, the I<plugin> part of the metric name
-is removed, and used as value of of tag I<String>
+is removed, and used as value of of tag I<String>.
 
 if I<String> is empty, it just removes the I<plugin> part of the metric, no tag are set.
 
 =item B<tsdb_tag_pluginInstance> I<String>
 
 If B<tsdb_tag_pluginInstance> is set and I<String> is not empty, the I<pluginInstance> 
-part of the metric name is removed, and used as value of of tag I<String>
+part of the metric name is removed, and used as value of of tag I<String>.
 
-if I<String> is empty, it just removes the I<tsdb_tag_pluginInstance> part of the metric name,
+if I<String> is empty, it just removes the I<pluginInstance> part of the metric name,
 no tag are set.
 
 =item B<tsdb_tag_type> I<String>
 
 If B<tsdb_tag_type> is set and I<String> is not empty, the I<type>
-part of the metric name is removed, and used as value of of tag I<String>
+part of the metric name is removed, and used as value of of tag I<String>.
 
-if I<String> is empty, it just removes the I<tsdb_tag_type> part of the metric name,
+if I<String> is empty, it just removes the I<type> part of the metric name,
 no tag are set.
 
 =item B<tsdb_tag_typeInstance> I<String>
 
 If B<tsdb_tag_typeInstance> is set and I<String> is not empty, the I<typeInstance>
-part of the metric name is removed, and used as value of of tag I<String>
+part of the metric name is removed, and used as value of of tag I<String>.
 
-if I<String> is empty, it just removes the I<tsdb_tag_typeInstance> part of the metric name,
+if I<String> is empty, it just removes the I<typeInstance> part of the metric name,
 no tag are set.
 
 =item B<tsdb_tag_dsname> I<String>
 
 If B<tsdb_tag_dsname> is set and I<String> is not empty, the I<dsname> 
-part of the metric name is removed, and used as value of of tag I<String>
+part of the metric name is removed, and used as value of of tag I<String>.
 
-if I<String> is empty, it just removes the I<tsdb_tag_dsname> part of the metric name,
+if I<String> is empty, it just removes the I<dsname> part of the metric name,
 no tag are set.
 
 =item B<tsdb_tag_add_*> I<String>
