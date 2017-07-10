@@ -10,7 +10,7 @@ C<write_opentsdb> - Collectd OpenTSDB plugin
           <Node>
                   URL "http://localhost:4242"
                   JsonHostTag true
-                  AutoFqdnFailback true
+                  AutoFqdnFallback true
                   StoreRates false
                   AlwaysAppendDS false
           </Node>
@@ -66,10 +66,23 @@ Also, keep in mind that OpenTSDB doesn't recommend more than 4 or 5 tags, with  
 
 Consequently choose your tags carefully, specially when also using I<write_opentsdb filtering Chain>.
 
-=item B<AutoFqdnFailback> B<true>|B<false>
+=item B<AutoFqdnFallback> B<true>|B<false>
 
 If B<JsonHostTag> and B<AutoFqdnFallback> are set to B<true> and if I<Hostname> failed to be parsed as
-json, this plugin sets the B<fqdn> tag to I<Hostname> raw value as a fallback.
+json, this plugin sets the I<fqdn> tag to I<Hostname> raw value as a fallback.
+
+
+=item B<StoreRates> B<false>|B<true>
+
+If set to B<true>, convert counter values to rates. If set to B<false>
+(the default) counter values are stored as is, as an increasing
+integer number.
+
+=item B<AlwaysAppendDS> B<false>|B<true>
+
+If set the B<true>, append the name of the I<Data Source> (DS) to the "metric"
+identifier. If set to B<false> (the default), this is only done when there is
+more than one DS.
 
 =item B<VerifyPeer> B<true>|B<false>
 
@@ -111,12 +124,6 @@ authentication.
 
 Password required to load the private key in B<ClientKey>.
 
-=item B<Header> I<Header>
-
-A HTTP header to add to the request.  Multiple headers are added if this option is specified more than once.  Example:
-
-  Header "X-Custom-Header: custom_value"
-
 =item B<SSLVersion> B<SSLv2>|B<SSLv3>|B<TLSv1>|B<TLSv1_0>|B<TLSv1_1>|B<TLSv1_2>|B<TLSv1_3>
 
 Define which SSL protocol version must be used. By default C<libcurl> will
@@ -131,11 +138,9 @@ Request timeout in seconds.
 
 =head2 write_opentsdb filtering Chain (OpenTSDB tagging)
 
-I<OpenTSDB> relies heavily on tags, which do not marry well with I<Collectd>.
-For that, C<write_opentsdb> can use collectd filter rules to rework the metrics with a
+I<OpenTSDB> relies heavily on tags, which does not marry well with I<Collectd>.
+For that, C<write_opentsdb> can use collectd filterring Chain rules to rework the metrics with a
 I<Collecd> I<PreCache> chain.
-
-These filtering rules relies on I<MetaData> option in I<set> Target.
 
 For these filtering rules to work, collectd version >= 5.6 is required (introduction of I<MetaData> option).
 
@@ -210,7 +215,7 @@ For these filtering rules to work, collectd version >= 5.6 is required (introduc
 
 With no filters, the metric name will be:
 
-  <plugin>[.<pluginInstance>].<type>[.<typeInstance>].<ds_name>
+  <plugin>[.<pluginInstance>].<type>[.<typeInstance>].<dsname>
 
 Example:
 
@@ -265,7 +270,7 @@ part of the metric name is removed, and used as value of of tag I<String>
 if I<String> is empty, it just removes the I<tsdb_tag_typeInstance> part of the metric name,
 no tag are set.
 
-=item B<tsdb_tag_dsname>
+=item B<tsdb_tag_dsname> I<String>
 
 If B<tsdb_tag_dsname> is set and I<String> is not empty, the I<dsname> 
 part of the metric name is removed, and used as value of of tag I<String>
