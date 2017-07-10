@@ -133,10 +133,13 @@ LoadPlugin target_set
 
 ## Changelogs
 
+### 0.0.5
+
+* Documentation fixes
 
 ### 0.0.4
 
-* Documentation update
+* Documentation fixes
 
 ### 0.0.3
 
