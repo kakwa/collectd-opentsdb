@@ -32,6 +32,9 @@ Compared to the C<write_tsdb> plugin, the C<write_opentsdb> plugin is also more 
 tag setting (PreChain rules for metric name rework (ex: cpu.0.idle -> sys.cpu.idle with tag cpu_id=0) and
 static tagging through a json object passed in Hostname).
 
+Even if this plugin can partially work with older versions, using it with collectd >= 5.6 is strongly recommended
+be able to use all functionalities, specially, I<JsonHostTag> and tag filtering.
+
 =head1 CONFIGURATION
 
 =head2 C<write_opentsdb> configuration options:
@@ -51,11 +54,17 @@ Default: 30
 
 =item B<JsonHostTag> B<true>|B<false>
 
-Try to parse the hostname as the set of static tags for data-points.
+Try to parse the Hostname as the set of static tags for data-points.
 
 The I<Hostname> (Global Option) should be set as followed for this to work:
 
   Hostname "{\"fqdn\": \"http.node1.example.org\", \"env\": \"prod\", \"role\": \"http\"}"
+
+Keep in mind that the total length of Hostname is limited to 127 characters (63 characters for collectd <= 5.5).
+
+Also, keep in mind that OpenTSDB doesn't recommend more than 4 or 5 tags, with  maximum of 8 tags by default.
+
+Consequently choose your tags carefully, specially when also using B<write_opentsdb> Chains.
 
 =item B<AutoFqdnFailback> B<true>|B<false>
 
@@ -120,12 +129,15 @@ Request timeout in seconds.
 
 =back
 
-=head2 write_opentsdb meta_data (OpenTSDB tagging)
+=head2 write_opentsdb filtering Chain (OpenTSDB tagging)
 
 I<OpenTSDB> relies heavily on tags, which do not marry well with I<Collectd>.
 For that, C<write_opentsdb> can use collectd filter rules to rework the metrics with a
 I<Collecd> I<PreCache> chain.
 
+These filtering rules relies on I<MetaData> option in I<set> Target.
+
+For these filtering rules to work, collectd version >= 5.6 is required (introduction of I<MetaData> option).
 
 =head3 Synopsys:
 
@@ -198,7 +210,7 @@ I<Collecd> I<PreCache> chain.
 
 With no filters, the metric name will be:
 
-  <plugin>.<pluginInstance>.<type>.<typeInstance>
+  <plugin>[.<pluginInstance>].<type>[.<typeInstance>].<ds_name>
 
 Example:
 
@@ -270,7 +282,7 @@ Example :
 
   MetaData "tsdb_tag_add_status" "down"
 
-adds a tag named 'status' with value 'down'.
+This rule adds a tag named 'status' with value 'down'.
 
 =back
 
@@ -282,7 +294,7 @@ L<regex(7)>,
 
 =head1 AUTHORS
 
-=head2 Based on work from:
+=head2 Heavily based on work from:
 
 Florian Forster E<lt>octo@collectd.orgE<gt>,
 Doug MacEachern E<lt>dougm at hyperic.comE<gt>,
