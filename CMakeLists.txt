@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.6)
 project (write_opentsdb)
 include(ExternalProject)
 
-set(VERSION 0.0.5)
+set(VERSION 0.0.6)
 
 option(DEBUG              "compile with debug symbol"    OFF)
 option(LINK_DL            "link dl" OFF)

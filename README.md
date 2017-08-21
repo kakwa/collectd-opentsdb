@@ -133,6 +133,10 @@ LoadPlugin target_set
 
 ## Changelogs
 
+### 0.0.6
+
+* fix various memleaks
+
 ### 0.0.5
 
 * Documentation fixes
