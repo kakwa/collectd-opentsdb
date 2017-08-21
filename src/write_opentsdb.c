@@ -264,6 +264,7 @@ static int wt_flush(cdtime_t timeout,
 
   pthread_mutex_lock(&cb->send_lock);
   status = wt_write_nolock(cb);
+  wt_reset_buffer(cb);
   pthread_mutex_unlock(&cb->send_lock);
 
   return status;
@@ -311,7 +312,6 @@ static int wt_write_nolock(struct wt_callback *cb){
 
   status = wh_log_http_error(cb, status);
 
-  wt_reset_buffer(cb);
   return 0;
   //return status;
 }
@@ -417,33 +417,38 @@ static int wt_format_tags(json_object *dp, const value_list_t *vl,
 
   if (vl->meta) {
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_PLUGIN]);
-    if (temp && strlen(temp) != 0) {
-      wt_add_tag(tags_array, temp, vl->plugin);
+    if (temp) {
+      if(strlen(temp) != 0)
+        wt_add_tag(tags_array, temp, vl->plugin);
       sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_PLUGININSTANCE]);
-    if (temp && strlen(temp) != 0) {
-      wt_add_tag(tags_array, temp, vl->plugin_instance);
+    if (temp) {
+      if(strlen(temp) != 0)
+        wt_add_tag(tags_array, temp, vl->plugin_instance);
       sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_TYPE]);
-    if (temp && strlen(temp) != 0) {
-      wt_add_tag(tags_array, temp, vl->type);
+    if (temp) {
+      if(strlen(temp) != 0)
+        wt_add_tag(tags_array, temp, vl->type);
       sfree(temp);
     }
 
     TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_TYPEINSTANCE]);
-    if (temp && strlen(temp) != 0) {
-      wt_add_tag(tags_array, temp, vl->type_instance);
+    if (temp) {
+      if(strlen(temp) != 0)
+        wt_add_tag(tags_array, temp, vl->type_instance);
       sfree(temp);
     }
 
     if (ds_name) {
       TSDB_META_DATA_GET_STRING(meta_tag_metric_id[TSDB_TAG_DSNAME]);
-      if (temp && strlen(temp) != 0) {
-        wt_add_tag(tags_array, temp, ds_name);
+      if (temp) {
+        if(strlen(temp) != 0)
+          wt_add_tag(tags_array, temp, ds_name);
         sfree(temp);
       }
     }
@@ -666,6 +671,7 @@ static int wt_write_messages(const data_set_t *ds, const value_list_t *vl,
 
     if(cb->buffer_metric_size == cb->buffer_metric_max ){
       ret = wt_write_nolock(cb);
+      wt_reset_buffer(cb);
       status += ret;
     }
 
@@ -880,6 +886,7 @@ static void wt_callback_free(void *data) {
   pthread_mutex_lock(&cb->send_lock);
 
   wt_write_nolock(cb);
+  json_object_put(cb->json_buffer);
 
   sfree(cb->node);
 
