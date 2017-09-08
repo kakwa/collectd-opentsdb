@@ -27,7 +27,7 @@ man collectd-opentsdb
 
 ## Dependencies
 
-* [collectd](https://collectd.org/)
+* [collectd](https://collectd.org/) (version >= 5.6 is strongly recommended)
 * [libcurl](https://curl.haxx.se/)
 * [libjson-c](https://github.com/json-c/json-c)
 
