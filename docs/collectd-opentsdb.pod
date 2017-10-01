@@ -140,7 +140,7 @@ Request timeout in seconds.
 
 I<OpenTSDB> relies heavily on tags, which does not marry well with I<Collectd>.
 For that, C<write_opentsdb> can use collectd filterring Chain rules to rework the metrics with a
-I<Collecd> I<PreCache> chain.
+I<Collectd> I<PreCache> chain.
 
 For these filtering rules to work, collectd version >= 5.6 is required (introduction of I<MetaData> option).
 
